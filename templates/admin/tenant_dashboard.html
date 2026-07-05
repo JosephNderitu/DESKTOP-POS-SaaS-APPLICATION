@@ -1,0 +1,48 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#0B3D91; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ total_products }}</div>
+                <div class="small">Total Products</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#008C72; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ active_products }}</div>
+                <div class="small">Active Products</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#F59E0B; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ low_stock_count }}</div>
+                <div class="small">Low Stock Items</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#061A40; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ total_staff }}</div>
+                <div class="small">Active Staff</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4" style="border-radius:10px;">
+    <div class="card-header" style="background-color:#061A40; color:white; font-weight:700;">Quick Actions</div>
+    <div class="card-body">
+        <a href="{% url 'tenant_admin:inventory_product_add' %}" class="btn btn-primary me-2">Add Product</a>
+        <a href="{% url 'tenant_admin:inventory_category_add' %}" class="btn btn-outline-primary me-2">Add Category</a>
+        <a href="{% url 'tenant_admin:users_user_add' %}" class="btn btn-outline-secondary">Add Staff Member</a>
+    </div>
+</div>
+{% endblock %}

@@ -43,7 +43,7 @@ class LoginWidget(QWidget):
         brand_layout.setContentsMargins(22, 18, 22, 15)
         brand_layout.setSpacing(0)
 
-        title = QLabel("Gikuru POS")
+        title = QLabel("Duka POS")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         title.setStyleSheet("font-size: 29px; font-weight: 900; color: #FFFFFF;")
         brand_layout.addWidget(title)
@@ -166,10 +166,34 @@ class LoginWidget(QWidget):
                 data = response.json()
                 data['tenant'] = tenant
                 self.login_successful.emit(data)
+            elif response.status_code == 402:
+                self.show_subscription_blocked(response)
             else:
-                QMessageBox.critical(self, "Access Denied", "Invalid store subdomain, username, password, or inactive subscription.")
+                QMessageBox.critical(self, "Access Denied", "Invalid store subdomain, username, or password.")
         except requests.exceptions.RequestException:
             QMessageBox.critical(self, "Network Failure", "Unable to reach cloud network.")
+
+    def show_subscription_blocked(self, response):
+        """Shows the specific reason a store's access is blocked — suspended, terminated, or trial ended."""
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = {}
+
+        status = payload.get('subscription_status', '')
+        detail = payload.get('detail', "This store's access is currently unavailable.")
+
+        title = {
+            'TERMINATED': "Subscription Terminated",
+            'SUSPENDED': "Account Suspended",
+        }.get(status, "Access Unavailable")
+
+        msg_box = QMessageBox(self)
+        msg_box.setIcon(QMessageBox.Icon.Warning)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(detail)
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
 
     def show_password_reset_note(self):
         QMessageBox.information(

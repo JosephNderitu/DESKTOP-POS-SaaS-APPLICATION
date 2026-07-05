@@ -1,0 +1,49 @@
+/* DUKA YANGU POS admin theme — matches the desktop client's navy/teal branding
+   with WCAG-friendly contrast (white text on #061A40 passes AA comfortably). */
+
+#jazzy-navbar {
+    background-color: #061A40 !important;
+}
+
+#jazzy-sidebar,
+#jazzy-sidebar .nav-sidebar > .nav-item > .nav-link {
+    background-color: #061A40 !important;
+    color: #DCEBFA !important;
+}
+
+#jazzy-sidebar .nav-sidebar > .nav-item > .nav-link.active,
+#jazzy-sidebar .nav-sidebar > .nav-item > .nav-link:hover {
+    background-color: #008C72 !important;
+    color: #FFFFFF !important;
+}
+
+#jazzy-logo,
+.brand-link {
+    background-color: #061A40 !important;
+    border-bottom: 3px solid #008C72 !important;
+}
+
+.brand-text {
+    color: #FFFFFF !important;
+    font-weight: 800 !important;
+}
+
+/* Primary buttons/links use the app's teal instead of default Bootstrap blue */
+.btn-primary {
+    background-color: #008C72 !important;
+    border-color: #007763 !important;
+}
+.btn-primary:hover {
+    background-color: #006F5B !important;
+    border-color: #006F5B !important;
+}
+
+a, .nav-link.active {
+    color: #008C72;
+}
+
+/* Stat/status badges (used in ClientAdmin, ProductAdmin) already inject inline
+   colors via format_html, this just ensures they keep sharp white text */
+span[style*="border-radius"] {
+    font-weight: 700;
+}

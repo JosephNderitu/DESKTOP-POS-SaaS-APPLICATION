@@ -14,11 +14,15 @@ class POSLoginView(ObtainAuthToken):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
+        tenant = request.tenant
         
         return Response({
             'token': token.key,
             'user_id': user.id,
             'username': user.username,
             'role': user.role,
+            "subscription_status": tenant.subscription_status,
+            "subscription_plan": tenant.subscription_plan,
+            "trial_days_left": tenant.days_left_in_trial,
             'facial_embedding': user.facial_embedding,  # Passed to PyQt for local matching
         })

@@ -26,6 +26,7 @@ SHARED_APPS = [
     'tenants',         # Our custom tenant onboarding app
 
     # Core Django apps needed globally
+    'jazzmin',
     'django.contrib.admin',
     'django.contrib.contenttypes',
     'django.contrib.auth',
@@ -61,6 +62,7 @@ for app in SHARED_APPS + TENANT_APPS:
 
 MIDDLEWARE = [
     'django_tenants.middleware.main.TenantMainMiddleware',  # MUST BE FIRST
+    'tenants.middleware.TenantAccessControlMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',           # Excellent for static assets
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -77,7 +79,7 @@ PUBLIC_SCHEMA_URLCONF = 'core_backend.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -173,4 +175,55 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ]
+}
+
+JAZZMIN_SETTINGS = {
+    "site_title": "DUKA YANGU POS Admin",
+    "site_header": "DUKA YANGU POS",
+    "site_brand": "DUKA YANGU POS",
+    "welcome_sign": "Platform Owner Console",
+    "copyright": "DUKA YANGU POS",
+    "search_model": ["tenants.Client", "auth.User"],
+    "show_ui_builder": False,
+    "custom_css": "admin/css/custom_admin.css",
+
+    "icons": {
+        "auth": "fas fa-users-cog",
+        "auth.group": "fas fa-users",
+        "tenants.client": "fas fa-store",
+        "tenants.domain": "fas fa-globe",
+        "tenants.platformauditlog": "fas fa-clipboard-list",
+        "inventory.product": "fas fa-box",
+        "inventory.category": "fas fa-tags",
+        "sales.sale": "fas fa-receipt",
+        "users.user": "fas fa-user",
+        "authtoken.tokenproxy": "fas fa-key",
+    },
+
+    "order_with_respect_to": ["tenants", "auth", "inventory", "sales", "users"],
+
+    "topmenu_links": [
+        {"name": "Home", "url": "admin:index"},
+        {"name": "Stores", "model": "tenants.Client"},
+        {"name": "Audit Log", "model": "tenants.PlatformAuditLog"},
+    ],
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "flatly",
+    "default_theme_mode": "light",
+    "navbar": "navbar-dark",
+    "navbar_fixed": True,
+    "no_navbar_border": True,
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_fixed": True,
+    "accent": "accent-primary",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success",
+    },
 }

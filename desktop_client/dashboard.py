@@ -305,6 +305,10 @@ class DashboardWidget(QWidget):
         layout.addWidget(self._nav_button('fa5s.bell', "Notifications", self._on_notifications))
         layout.addWidget(self._nav_button('fa5s.cog', "Settings", self._on_settings))
 
+        self.subscription_pill = QLabel("")
+        self.subscription_pill.setVisible(False)
+        layout.addWidget(self.subscription_pill)
+
         divider = QFrame()
         divider.setFrameShape(QFrame.Shape.VLine)
         divider.setStyleSheet("color: #1E3A6D;")
@@ -313,6 +317,27 @@ class DashboardWidget(QWidget):
         layout.addWidget(self._build_profile_pill())
 
         return header
+
+    def _update_subscription_pill(self, status, days_left):
+        """Reflects the store's subscription state right in the header — trial
+        countdown, active confirmation, or a suspended/terminated warning."""
+        presets = {
+            'TRIAL': ('#F59E0B', f"Trial - {days_left} day{'s' if days_left != 1 else ''} left" if days_left is not None else "Trial"),
+            'ACTIVE': ('#008C72', "Active"),
+            'SUSPENDED': ('#DC2626', "Suspended"),
+            'TERMINATED': ('#7F1D1D', "Terminated"),
+        }
+        color, text = presets.get(status, (None, None))
+        if not text:
+            self.subscription_pill.setVisible(False)
+            return
+
+        self.subscription_pill.setText(f"  {text}  ")
+        self.subscription_pill.setStyleSheet(f"""
+            background-color: {color}; color: white; border-radius: 10px;
+            font-size: 11px; font-weight: 800; padding: 5px 10px;
+        """)
+        self.subscription_pill.setVisible(True)
 
     def _nav_button(self, icon_name, tooltip, on_click=None, active=False):
         btn = QToolButton()
@@ -395,15 +420,6 @@ class DashboardWidget(QWidget):
                 font-size: 13px; color: #07111F; background-color: #F8FAFC; min-width: 150px;
             }
             QComboBox:focus { border: 1px solid #008C72; }
-            QComboBox QAbstractItemView {
-                background-color: #FFFFFF;
-                color: #07111F;
-                selection-background-color: #DBEAFE;
-                selection-color: #07111F;
-                border: 1px solid #E2E8F0;
-                outline: none;
-                padding: 4px;
-            }
         """)
         self.category_filter.currentIndexChanged.connect(self.apply_filters)
         layout.addWidget(self.category_filter, stretch=1)
@@ -618,6 +634,12 @@ class DashboardWidget(QWidget):
             f"<b>Access Clearances:</b><br>{role}<br><br>"
             f"<b>Network State:</b><br><font color='#7DD3FC'>Online Session</font>"
         )
+
+        self._update_subscription_pill(
+            session_info.get('subscription_status'),
+            session_info.get('trial_days_left'),
+        )
+
         self.trigger_background_sync()
 
     def trigger_background_sync(self):
@@ -799,8 +821,6 @@ class DashboardWidget(QWidget):
                             color: #061A40;
                             border-radius: 4px;
                             font-weight: 900;
-                            font-size: 14px;
-                            padding: 0px;
                         }
                         QPushButton:hover { background-color: #E0F2FE; }
                     """)

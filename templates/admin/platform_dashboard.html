@@ -1,0 +1,72 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#0B3D91; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ total_stores }}</div>
+                <div class="small">Total Stores</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#008C72; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ active_stores }}</div>
+                <div class="small">Active</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#F59E0B; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ trial_stores }}</div>
+                <div class="small">On Trial</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-white" style="background-color:#DC2626; border:none; border-radius:10px;">
+            <div class="card-body">
+                <div class="fs-2 fw-bold">{{ suspended_stores|add:terminated_stores }}</div>
+                <div class="small">Suspended / Terminated</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4" style="border-radius:10px;">
+    <div class="card-header" style="background-color:#061A40; color:white; font-weight:700;">Quick Actions</div>
+    <div class="card-body">
+        <a href="{% url 'admin:tenants_client_add' %}" class="btn btn-primary me-2">Add Store</a>
+        <a href="{% url 'admin:tenants_client_changelist' %}" class="btn btn-outline-primary me-2">View All Stores</a>
+        <a href="{% url 'admin:tenants_platformauditlog_changelist' %}" class="btn btn-outline-secondary">View Audit Log</a>
+    </div>
+</div>
+
+<div class="card mb-4" style="border-radius:10px;">
+    <div class="card-header" style="background-color:#061A40; color:white; font-weight:700;">Recent Platform Activity</div>
+    <div class="card-body p-0">
+        <table class="table mb-0">
+            <thead>
+                <tr><th>Time</th><th>Actor</th><th>Action</th><th>Store</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+                {% for log in recent_logs %}
+                <tr>
+                    <td>{{ log.timestamp|date:"M d, H:i" }}</td>
+                    <td>{{ log.actor_username }}</td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.target_tenant }}</td>
+                    <td>{{ log.reason|default:"—" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-muted text-center py-3">No platform actions recorded yet.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

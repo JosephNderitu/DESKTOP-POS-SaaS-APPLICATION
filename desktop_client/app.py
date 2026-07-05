@@ -11,48 +11,6 @@ class MainAppController(QMainWindow):
         self.setWindowTitle("Gikuru POS Terminal")
         self.resize(560, 660)
 
-        # Light desktop shell for the auth screens and main terminal.
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #F6F9FC;
-            }
-            QStackedWidget {
-                background-color: #F6F9FC;
-            }
-            QLabel {
-                color: #07111F;
-                font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
-            }
-            QLineEdit {
-                background-color: #FFFFFF;
-                border: 1px solid #D6DEE8;
-                border-radius: 4px;
-                padding: 11px 12px;
-                color: #07111F;
-                font-size: 14px;
-            }
-            QLineEdit:focus {
-                border: 1px solid #008C72;
-            }
-            QPushButton {
-                font-weight: bold;
-                font-size: 14px;
-                padding: 12px;
-                border-radius: 4px;
-                border: none;
-            }
-            QComboBox {
-                background-color: #FFFFFF;
-                border: 1px solid #D6DEE8;
-                border-radius: 4px;
-                padding: 10px;
-                color: #07111F;
-            }
-            QComboBox:focus {
-                border: 1px solid #008C72;
-            }
-        """)
-
         self.central_stack = QStackedWidget()
         self.setCentralWidget(self.central_stack)
 
@@ -87,9 +45,74 @@ class MainAppController(QMainWindow):
         self.login_page.password_input.clear()
         self.central_stack.setCurrentIndex(0)
 
+    
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setFont(QFont("Segoe UI", 10))
+
+    app.setStyleSheet("""
+        QMainWindow {
+            background-color: #F6F9FC;
+        }
+        QStackedWidget {
+            background-color: #F6F9FC;
+        }
+        QLabel {
+            color: #07111F;
+            font-family: 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+        QLineEdit {
+            background-color: #FFFFFF;
+            border: 1px solid #D6DEE8;
+            border-radius: 4px;
+            padding: 11px 12px;
+            color: #07111F;
+            font-size: 14px;
+        }
+        QLineEdit:focus {
+            border: 1px solid #008C72;
+        }
+        QPushButton {
+            font-weight: bold;
+            font-size: 14px;
+            padding: 12px;
+            border-radius: 4px;
+            border: none;
+        }
+        QComboBox {
+            background-color: #FFFFFF;
+            border: 1px solid #D6DEE8;
+            border-radius: 4px;
+            padding: 10px;
+            color: #07111F;
+        }
+        QComboBox:focus {
+            border: 1px solid #008C72;
+        }
+
+        /* Popup dialogs: QMessageBox.information / .warning / .question etc. */
+        QMessageBox {
+            background-color: #FFFFFF;
+        }
+        QMessageBox QLabel {
+            color: #07111F;
+            font-size: 13px;
+            padding: 6px;
+        }
+        QMessageBox QPushButton {
+            background-color: #0B3D91;
+            color: #FFFFFF;
+            font-size: 12px;
+            font-weight: 800;
+            padding: 8px 18px;
+            border-radius: 5px;
+            min-width: 70px;
+        }
+        QMessageBox QPushButton:hover {
+            background-color: #061A40;
+        }
+    """)
+
     main_window = MainAppController()
     main_window.show()
     sys.exit(app.exec())
