@@ -2,12 +2,37 @@ import requests
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget
 from PyQt6.QtCore import Qt, pyqtSignal
 
+
 class LoginWidget(QWidget):
     login_successful = pyqtSignal(dict)
-    signup_requested = pyqtSignal() # Route link trigger
+    signup_requested = pyqtSignal()  # Route link trigger
+
+    ACTIVE_TAB_STYLE = """
+        QPushButton {
+            background-color: #DFF7F1;
+            color: #061A40;
+            border: 1px solid #A7E8DB;
+            border-radius: 3px;
+            font-size: 12px;
+            padding: 10px 8px;
+            font-weight: 700;
+        }
+    """
+    INACTIVE_TAB_STYLE = """
+        QPushButton {
+            background-color: #FFFFFF;
+            color: #07111F;
+            border: 1px solid #D6DEE8;
+            border-radius: 3px;
+            font-size: 12px;
+            padding: 10px 8px;
+        }
+        QPushButton:hover { background-color: #E0F2FE; border-color: #7DD3FC; }
+    """
 
     def __init__(self):
         super().__init__()
+        self.active_tab = "owner"
         self.init_ui()
 
     def init_ui(self):
@@ -22,7 +47,7 @@ class LoginWidget(QWidget):
             QFrame#authCard {
                 background-color: #FFFFFF;
                 border: 2px solid #061A40;
-                border-radius: 2px;
+                border-radius: 6px;
             }
         """)
 
@@ -43,14 +68,14 @@ class LoginWidget(QWidget):
         brand_layout.setContentsMargins(22, 18, 22, 15)
         brand_layout.setSpacing(0)
 
-        title = QLabel("Duka POS")
+        title = QLabel("DUKA YANGU POS")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("font-size: 29px; font-weight: 900; color: #FFFFFF;")
+        title.setStyleSheet("font-size: 29px; font-weight: 900; color: #FFFFFF; border: none;")
         brand_layout.addWidget(title)
 
         subtitle = QLabel("point of sale made simple")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        subtitle.setStyleSheet("font-size: 11px; color: #7DD3FC;")
+        subtitle.setStyleSheet("font-size: 11px; color: #7DD3FC; border: none;")
         brand_layout.addWidget(subtitle)
         layout.addWidget(brand_bar)
 
@@ -61,32 +86,15 @@ class LoginWidget(QWidget):
         tabs = QHBoxLayout()
         tabs.setSpacing(0)
         self.owner_tab = QPushButton("Owner Login")
-        self.owner_tab.setEnabled(False)
-        self.owner_tab.setStyleSheet("""
-            QPushButton {
-                background-color: #DFF7F1;
-                color: #061A40;
-                border: 1px solid #A7E8DB;
-                border-radius: 3px;
-                font-size: 12px;
-                padding: 10px 8px;
-            }
-        """)
         self.employee_tab = QPushButton("Employee Login")
-        self.employee_tab.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF;
-                color: #07111F;
-                border: 1px solid #D6DEE8;
-                border-radius: 3px;
-                font-size: 12px;
-                padding: 10px 8px;
-            }
-            QPushButton:hover { background-color: #E0F2FE; border-color: #7DD3FC; }
-        """)
+        for tab_btn in (self.owner_tab, self.employee_tab):
+            tab_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.owner_tab.clicked.connect(lambda: self._set_active_tab("owner"))
+        self.employee_tab.clicked.connect(lambda: self._set_active_tab("employee"))
         tabs.addWidget(self.owner_tab)
         tabs.addWidget(self.employee_tab)
         form_layout.addLayout(tabs)
+        self._apply_tab_styles()
 
         self.tenant_input = QLineEdit()
         self.tenant_input.setPlaceholderText("Store subdomain")
@@ -103,13 +111,19 @@ class LoginWidget(QWidget):
         form_layout.addWidget(self.password_input)
 
         self.login_btn = QPushButton("Login")
+        self.login_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.login_btn.setStyleSheet("""
             QPushButton {
                 background-color: #008C72;
                 color: #FFFFFF;
                 border: 1px solid #007763;
+                padding: 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 14px;
             }
             QPushButton:hover { background-color: #006F5B; }
+            QPushButton:disabled { background-color: #94A3B8; border-color: #94A3B8; }
         """)
         self.login_btn.clicked.connect(self.handle_login)
         form_layout.addWidget(self.login_btn)
@@ -123,6 +137,7 @@ class LoginWidget(QWidget):
                 font-size: 12px;
                 font-weight: 600;
                 padding: 4px;
+                border: none;
             }
             QPushButton:hover { color: #0284C7; text-decoration: underline; }
         """)
@@ -137,6 +152,7 @@ class LoginWidget(QWidget):
                 color: #334155;
                 font-size: 13px;
                 padding: 4px;
+                border: none;
             }
             QPushButton:hover { color: #061A40; text-decoration: underline; }
         """)
@@ -147,6 +163,16 @@ class LoginWidget(QWidget):
 
         page_layout.addWidget(card)
         self.setLayout(page_layout)
+
+    def _set_active_tab(self, tab_name):
+        # Visual grouping only for now — both tabs authenticate the same way.
+        # Once role-scoped login screens exist, branch the request here.
+        self.active_tab = tab_name
+        self._apply_tab_styles()
+
+    def _apply_tab_styles(self):
+        self.owner_tab.setStyleSheet(self.ACTIVE_TAB_STYLE if self.active_tab == "owner" else self.INACTIVE_TAB_STYLE)
+        self.employee_tab.setStyleSheet(self.ACTIVE_TAB_STYLE if self.active_tab == "employee" else self.INACTIVE_TAB_STYLE)
 
     def handle_login(self):
         tenant = self.tenant_input.text().strip()
@@ -160,8 +186,11 @@ class LoginWidget(QWidget):
         api_url = "http://127.0.0.1:8000/api/v1/login/"
         headers = {"Host": f"{tenant}.localhost:8000", "Content-Type": "application/json"}
 
+        self.login_btn.setText("Signing in...")
+        self.login_btn.setEnabled(False)
+
         try:
-            response = requests.post(api_url, json={"username": username, "password": password}, headers=headers, timeout=5)
+            response = requests.post(api_url, json={"username": username, "password": password}, headers=headers, timeout=8)
             if response.status_code == 200:
                 data = response.json()
                 data['tenant'] = tenant
@@ -172,6 +201,9 @@ class LoginWidget(QWidget):
                 QMessageBox.critical(self, "Access Denied", "Invalid store subdomain, username, or password.")
         except requests.exceptions.RequestException:
             QMessageBox.critical(self, "Network Failure", "Unable to reach cloud network.")
+        finally:
+            self.login_btn.setText("Login")
+            self.login_btn.setEnabled(True)
 
     def show_subscription_blocked(self, response):
         """Shows the specific reason a store's access is blocked — suspended, terminated, or trial ended."""

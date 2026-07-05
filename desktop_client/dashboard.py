@@ -414,12 +414,25 @@ class DashboardWidget(QWidget):
 
         self.category_filter = QComboBox()
         self.category_filter.addItem("All Categories")
+        # NOTE: the QComboBox rule below styles the closed box only. The
+        # QComboBox QAbstractItemView rule styles the dropdown's popup list —
+        # without it, some OS dark themes render popup text as white-on-white
+        # and the list looks empty even though the items are really there.
         self.category_filter.setStyleSheet("""
             QComboBox {
                 border: 1px solid #E2E8F0; border-radius: 6px; padding: 8px 10px;
                 font-size: 13px; color: #07111F; background-color: #F8FAFC; min-width: 150px;
             }
             QComboBox:focus { border: 1px solid #008C72; }
+            QComboBox QAbstractItemView {
+                background-color: #FFFFFF;
+                color: #07111F;
+                selection-background-color: #DBEAFE;
+                selection-color: #07111F;
+                border: 1px solid #E2E8F0;
+                outline: none;
+                padding: 4px;
+            }
         """)
         self.category_filter.currentIndexChanged.connect(self.apply_filters)
         layout.addWidget(self.category_filter, stretch=1)
@@ -709,7 +722,6 @@ class DashboardWidget(QWidget):
         if not products_to_render:
             message = "No active products found in this branch inventory." if not self.products \
                 else "No products match your search or filter."
-            empty_box = QVBoxLayout()
             icon_label = QLabel()
             icon_label.setPixmap(qta.icon('fa5s.box-open', color='#CBD5E1').pixmap(40, 40))
             icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -815,12 +827,18 @@ class DashboardWidget(QWidget):
                 for btn in (minus_btn, plus_btn):
                     btn.setFixedSize(28, 24)
                     btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    # NOTE: padding: 0px is the important part here — a
+                    # global QPushButton { padding: 12px; } elsewhere in the
+                    # app was squeezing the +/- glyph out of these small
+                    # 28x24px buttons, rendering them as blank squares.
                     btn.setStyleSheet("""
                         QPushButton {
                             background-color: #FFFFFF;
                             color: #061A40;
                             border-radius: 4px;
                             font-weight: 900;
+                            font-size: 14px;
+                            padding: 0px;
                         }
                         QPushButton:hover { background-color: #E0F2FE; }
                     """)
