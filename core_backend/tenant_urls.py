@@ -10,10 +10,14 @@ tenant_router.register(r'products', TenantProductViewSet, basename='tenant-produ
 from django.conf import settings
 from django.conf.urls.static import static
 
+#billing views
+from billing.views import InitiateSubscriptionCheckoutView
+
 urlpatterns = [
     path('admin/', tenant_admin_site.urls),  # scoped site — no Client/Domain/audit models exist here
     path('api/v1/login/', POSLoginView.as_view(), name='pos_login'),
     path('api/v1/inventory/', include(tenant_router.urls)),
+    path('api/v1/billing/checkout/', InitiateSubscriptionCheckoutView.as_view(), name='billing_checkout'),
 ]
 
 if settings.DEBUG:

@@ -25,6 +25,8 @@ from tenants.platform_views import (
 )
 from tenants.views import TenantRegistrationView
 from users.views import POSLoginView
+# Billing views
+from billing.views import SubscriptionPlanListView, StripeWebhookView, PayPalCaptureView, MpesaCallbackView, StripeConfirmCheckoutView, billing_success_page, billing_cancel_page, MarkTransactionCancelledView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -42,6 +44,17 @@ urlpatterns = [
     path('api/v1/platform/stores/<str:schema_name>/rename-domain/', TenantRenameDomainView.as_view(), name='platform_store_rename_domain'),
     path('api/v1/platform/stores/<str:schema_name>/users/', TenantUserListView.as_view(), name='platform_store_users'),
     path('api/v1/platform/stores/<str:schema_name>/users/<int:user_id>/suspend/', TenantUserSuspendView.as_view(), name='platform_store_user_suspend'),
+    # Billing endpoints (public schema)
+    path('api/v1/billing/plans/', SubscriptionPlanListView.as_view(), name='billing_plans'),
+    path('api/v1/billing/webhooks/stripe/', StripeWebhookView.as_view(), name='billing_stripe_webhook'),
+    path('api/v1/billing/paypal/capture/', PayPalCaptureView.as_view(), name='billing_paypal_capture'),
+    path('api/v1/billing/webhooks/mpesa/', MpesaCallbackView.as_view(), name='billing_mpesa_callback'),
+    path('api/v1/billing/stripe/confirm/', StripeConfirmCheckoutView.as_view(), name='billing_stripe_confirm'),
+    path('api/v1/billing/cancel/', MarkTransactionCancelledView.as_view(), name='billing_cancel_transaction'),
+    
+    # Browser-facing redirect landing pages (not API endpoints)
+    path('billing/success/', billing_success_page, name='billing_success_page'),
+    path('billing/cancel/', billing_cancel_page, name='billing_cancel_page'),
 ]
 
 # Serve media files for tenant domains in development

@@ -24,6 +24,7 @@ ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost', '*']
 SHARED_APPS = [
     'django_tenants',  # Must be placed at the very top
     'tenants',         # Our custom tenant onboarding app
+    'billing',        # Our custom subscription billing app
 
     # Core Django apps needed globally
     'jazzmin',
@@ -186,6 +187,7 @@ JAZZMIN_SETTINGS = {
     "search_model": ["tenants.Client", "auth.User"],
     "show_ui_builder": False,
     "custom_css": "admin/css/custom_admin.css",
+    "custom_js": "admin/js/scope_nav.js",
 
     "icons": {
         "auth": "fas fa-users-cog",
@@ -227,3 +229,22 @@ JAZZMIN_UI_TWEAKS = {
         "success": "btn-success",
     },
 }
+
+# Payment gateway credentials — see .env.example
+STRIPE_API_SECRET_KEY = env('STRIPE_API_SECRET_KEY', default='')
+STRIPE_API_PUBLIC_KEY = env('STRIPE_API_PUBLIC_KEY', default='')
+STRIPE_API_WEBHOOK_SECRET = env('STRIPE_API_WEBHOOK_SECRET', default='')
+
+PAYPAL_CLIENT_ID = env('PAYPAL_CLIENT_ID', default='')
+PAYPAL_CLIENT_SECRET = env('PAYPAL_CLIENT_SECRET', default='')
+PAYPAL_MODE = env('PAYPAL_MODE', default='sandbox')
+
+MPESA_CONSUMER_KEY = env('MPESA_CONSUMER_KEY', default='')
+MPESA_CONSUMER_SECRET = env('MPESA_CONSUMER_SECRET', default='')
+MPESA_SHORTCODE = env('MPESA_SHORTCODE', default='')
+MPESA_PASSKEY = env('MPESA_PASSKEY', default='')
+MPESA_ENV = env('MPESA_ENV', default='sandbox')
+MPESA_CALLBACK_URL = env('MPESA_CALLBACK_URL', default='')
+
+FRONTEND_SUCCESS_URL = env('FRONTEND_SUCCESS_URL', default='http://localhost:8000/billing/success/')
+FRONTEND_CANCEL_URL = env('FRONTEND_CANCEL_URL', default='http://localhost:8000/billing/cancel/')
