@@ -140,6 +140,7 @@ class SignupWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.all_plans = []
+        self.selected_signup_choice = "TRIAL"
         self.selected_billing_cycle = "MONTHLY"
         self.selected_plan_code = None
         self.selected_gateway = None
@@ -205,13 +206,30 @@ class SignupWidget(QWidget):
         self.admin_email.setPlaceholderText("Owner email for password resets")
         form_layout.addWidget(self.admin_email)
 
-        form_layout.addWidget(self._build_section_label("Choose a plan"))
-        form_layout.addWidget(self._build_cycle_toggle())
+        form_layout.addWidget(self._build_section_label("How would you like to start?"))
+        form_layout.addWidget(self._build_signup_choice_toggle())
+
+        self.trial_note_label = QLabel(
+            "Your store will be fully active immediately for 14 days. One free trial per email address."
+        )
+        self.trial_note_label.setWordWrap(True)
+        self.trial_note_label.setStyleSheet("font-size: 11px; color: #64748B; border: none; margin-top: 2px;")
+        form_layout.addWidget(self.trial_note_label)
+
+        # Everything below is only shown when "Subscribe Now" is selected —
+        # a free trial needs no plan or payment method at all.
+        self.paid_section = QWidget()
+        paid_section_layout = QVBoxLayout(self.paid_section)
+        paid_section_layout.setContentsMargins(0, 0, 0, 0)
+        paid_section_layout.setSpacing(12)
+
+        paid_section_layout.addWidget(self._build_section_label("Choose a plan"))
+        paid_section_layout.addWidget(self._build_cycle_toggle())
 
         self.plans_status_label = QLabel("Loading plans...")
         self.plans_status_label.setStyleSheet("font-size: 12px; color: #94A3B8; border: none;")
         self.plans_status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        form_layout.addWidget(self.plans_status_label)
+        paid_section_layout.addWidget(self.plans_status_label)
 
         self.plans_scroll = QScrollArea()
         self.plans_scroll.setWidgetResizable(True)
@@ -225,9 +243,9 @@ class SignupWidget(QWidget):
         self.plans_row_layout.setSpacing(10)
         self.plans_row_layout.setContentsMargins(2, 2, 2, 2)
         self.plans_scroll.setWidget(self.plans_container)
-        form_layout.addWidget(self.plans_scroll)
+        paid_section_layout.addWidget(self.plans_scroll)
 
-        form_layout.addWidget(self._build_section_label("Choose a payment method"))
+        paid_section_layout.addWidget(self._build_section_label("Choose a payment method"))
 
         gateways_row = QHBoxLayout()
         gateways_row.setSpacing(10)
@@ -238,14 +256,17 @@ class SignupWidget(QWidget):
             self.gateway_cards.append(gateway_card)
             gateways_row.addWidget(gateway_card)
         gateways_row.addStretch()
-        form_layout.addLayout(gateways_row)
+        paid_section_layout.addLayout(gateways_row)
 
         self.phone_input = QLineEdit()
         self.phone_input.setPlaceholderText("M-Pesa phone number (e.g., 2547XXXXXXXX)")
         self.phone_input.setVisible(False)
-        form_layout.addWidget(self.phone_input)
+        paid_section_layout.addWidget(self.phone_input)
 
-        self.signup_btn = QPushButton("Create Store & Subscribe")
+        form_layout.addWidget(self.paid_section)
+        self.paid_section.setVisible(False)  # hidden until "Subscribe Now" is chosen
+
+        self.signup_btn = QPushButton("Create Store & Start Trial")
         self.signup_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.signup_btn.setStyleSheet("""
             QPushButton {
@@ -321,6 +342,46 @@ class SignupWidget(QWidget):
         label = QLabel(text)
         label.setStyleSheet("font-size: 13px; color: #07111F; font-weight: 700; margin-top: 6px; border: none;")
         return label
+
+    def _build_signup_choice_toggle(self):
+        row = QHBoxLayout()
+        row.setSpacing(0)
+        self.trial_choice_btn = QPushButton("Start Free Trial (14 days)")
+        self.paid_choice_btn = QPushButton("Subscribe Now")
+        for btn in (self.trial_choice_btn, self.paid_choice_btn):
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.trial_choice_btn.clicked.connect(lambda: self.set_signup_choice("TRIAL"))
+        self.paid_choice_btn.clicked.connect(lambda: self.set_signup_choice("PAID"))
+        row.addWidget(self.trial_choice_btn)
+        row.addWidget(self.paid_choice_btn)
+        self._style_signup_choice_toggle()
+        wrapper = QWidget()
+        wrapper.setLayout(row)
+        return wrapper
+
+    def _style_signup_choice_toggle(self):
+        active_style = """
+            QPushButton {
+                background-color: #DFF7F1; color: #061A40; border: 1px solid #A7E8DB;
+                font-size: 12px; padding: 10px; font-weight: 800;
+            }
+        """
+        inactive_style = """
+            QPushButton {
+                background-color: #FFFFFF; color: #07111F; border: 1px solid #D6DEE8;
+                font-size: 12px; padding: 10px;
+            }
+            QPushButton:hover { background-color: #E0F2FE; }
+        """
+        self.trial_choice_btn.setStyleSheet(active_style if self.selected_signup_choice == "TRIAL" else inactive_style)
+        self.paid_choice_btn.setStyleSheet(active_style if self.selected_signup_choice == "PAID" else inactive_style)
+
+    def set_signup_choice(self, choice):
+        self.selected_signup_choice = choice
+        self._style_signup_choice_toggle()
+        self.trial_note_label.setVisible(choice == "TRIAL")
+        self.paid_section.setVisible(choice == "PAID")
+        self.signup_btn.setText("Create Store & Start Trial" if choice == "TRIAL" else "Create Store & Subscribe")
 
     def _build_cycle_toggle(self):
         row = QHBoxLayout()
@@ -419,18 +480,27 @@ class SignupWidget(QWidget):
         if not business or not sub or not email:
             QMessageBox.warning(self, "Input Error", "Enter the business name, store subdomain, and owner email.")
             return
-        if not self.selected_plan_code:
-            QMessageBox.warning(self, "Input Error", "Choose a subscription plan to continue.")
-            return
-        if not self.selected_gateway:
-            QMessageBox.warning(self, "Input Error", "Choose a payment method to continue.")
-            return
-        if self.selected_gateway == "MPESA" and not self.phone_input.text().strip():
-            QMessageBox.warning(self, "Input Error", "Enter the phone number to receive the M-Pesa payment prompt on.")
-            return
+
+        if self.selected_signup_choice == "PAID":
+            if not self.selected_plan_code:
+                QMessageBox.warning(self, "Input Error", "Choose a subscription plan to continue.")
+                return
+            if not self.selected_gateway:
+                QMessageBox.warning(self, "Input Error", "Choose a payment method to continue.")
+                return
+            if self.selected_gateway == "MPESA" and not self.phone_input.text().strip():
+                QMessageBox.warning(self, "Input Error", "Enter the phone number to receive the M-Pesa payment prompt on.")
+                return
 
         api_url = "http://127.0.0.1:8000/api/v1/register/"
-        payload = {"business_name": business, "subdomain": sub, "email": email}
+        payload = {
+            "business_name": business,
+            "subdomain": sub,
+            "email": email,
+            "signup_choice": self.selected_signup_choice,
+        }
+        if self.selected_signup_choice == "PAID":
+            payload["plan_code"] = self.selected_plan_code
         headers = {"Host": "localhost:8000", "Content-Type": "application/json"}
 
         self.signup_btn.setText("Creating store...")
@@ -444,7 +514,10 @@ class SignupWidget(QWidget):
 
                 if response.status_code == 201:
                     creds = response_data.get('generated_credentials', {})
-                    self._start_checkout(sub, creds.get('username'), creds.get('password'))
+                    if self.selected_signup_choice == "TRIAL":
+                        self._show_trial_success(sub, creds.get('username'), creds.get('password'))
+                    else:
+                        self._start_checkout(sub, creds.get('username'), creds.get('password'))
                 else:
                     error_msg = response_data.get('error', 'Registration process rejected.')
                     QMessageBox.critical(self, "Provisioning Refused", error_msg)
@@ -459,6 +532,29 @@ class SignupWidget(QWidget):
         except requests.exceptions.RequestException as e:
             QMessageBox.critical(self, "Network Error", f"Failed to contact registration server: {e}")
             self._reset_submit_button()
+
+    def _show_trial_success(self, subdomain, username, password):
+        """
+        Trial stores are fully active immediately — no payment step exists
+        for this path, so there's nothing to withhold here. This is the only
+        branch where showing working credentials right away is correct.
+        """
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle("Trial Started")
+        success_icon = qta.icon('fa5s.check-circle', color='#008C72')
+        msg_box.setIconPixmap(success_icon.pixmap(48, 48))
+        msg_box.setText("Your 14-day free trial is active.")
+        msg_box.setInformativeText(
+            f"Store Subdomain ID: {subdomain}\n\n"
+            f"Default Admin Username: {username}\n"
+            f"Default Admin Password: {password}\n\n"
+            "Save these credentials safely. Log in now to start using your store."
+        )
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
+
+        self._clear_form()
+        self.back_to_login.emit()
 
     def _start_checkout(self, subdomain, username, password):
         self.signup_btn.setText("Starting checkout...")
@@ -476,6 +572,14 @@ class SignupWidget(QWidget):
         self.checkout_worker.start()
 
     def on_checkout_ready(self, result):
+        """
+        NOTE: the tenant created for this path starts in PENDING_PAYMENT, not
+        ACTIVE — the credentials shown below cannot be used for anything
+        except logging back in to retry payment until a real payment
+        succeeds and the backend flips the tenant to ACTIVE. Showing them
+        here is safe specifically because of that server-side lock, not
+        because the payment is confirmed yet.
+        """
         username, password = self._pending_creds
         checkout_url = result.get('checkout_url')
 
@@ -485,9 +589,9 @@ class SignupWidget(QWidget):
                 f"Store Subdomain ID: {self.subdomain.text().strip()}\n\n"
                 f"Default Admin Username: {username}\n"
                 f"Default Admin Password: {password}\n\n"
-                "Save these credentials safely.\n\n"
+                "Your store is created but LOCKED until payment is confirmed.\n\n"
                 "A browser window has opened to complete your payment. "
-                "Once payment is done, come back and log in with the credentials above."
+                "Once payment succeeds, log in with the credentials above to start using your store."
             )
         else:
             # M-Pesa has no checkout_url — it's an STK push to the phone instead
@@ -495,14 +599,14 @@ class SignupWidget(QWidget):
                 f"Store Subdomain ID: {self.subdomain.text().strip()}\n\n"
                 f"Default Admin Username: {username}\n"
                 f"Default Admin Password: {password}\n\n"
+                "Your store is created but LOCKED until payment is confirmed.\n\n"
                 f"{result.get('message', 'Check your phone to complete the M-Pesa payment.')}"
             )
 
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Store Created")
-        success_icon = qta.icon('fa5s.check-circle', color='#008C72')
-        msg_box.setIconPixmap(success_icon.pixmap(48, 48))
-        msg_box.setText("Your store workspace has been created.")
+        msg_box.setWindowTitle("Store Created — Payment Required")
+        msg_box.setIconPixmap(qta.icon('fa5s.lock', color='#F59E0B').pixmap(48, 48))
+        msg_box.setText("Complete payment to activate your store.")
         msg_box.setInformativeText(body)
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
@@ -511,13 +615,22 @@ class SignupWidget(QWidget):
         self.back_to_login.emit()
 
     def on_checkout_failed(self, error_message):
+        """
+        Checkout failing to even start does NOT mean the store is usable —
+        it stays in PENDING_PAYMENT server-side either way. The credentials
+        are inert until a payment actually succeeds; this dialog exists so
+        the person knows how to retry (log back in — the login screen
+        offers a "resume payment" option for exactly this case).
+        """
         username, password = self._pending_creds
         msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Store Created — Subscription Pending")
+        msg_box.setWindowTitle("Store Created — Payment Required")
         msg_box.setIcon(QMessageBox.Icon.Warning)
-        msg_box.setText("Your store was created, but we couldn't start checkout automatically.")
+        msg_box.setText("Your store was created but is LOCKED — checkout could not be started automatically.")
         msg_box.setInformativeText(
-            f"Default Admin Username: {username}\nDefault Admin Password: {password}\n\n{error_message}"
+            f"Default Admin Username: {username}\nDefault Admin Password: {password}\n\n"
+            f"{error_message}\n\n"
+            "Log in with these credentials to retry payment from the login screen."
         )
         msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
         msg_box.exec()
@@ -533,5 +646,7 @@ class SignupWidget(QWidget):
         self._reset_submit_button()
 
     def _reset_submit_button(self):
-        self.signup_btn.setText("Create Store & Subscribe")
+        self.signup_btn.setText(
+            "Create Store & Start Trial" if self.selected_signup_choice == "TRIAL" else "Create Store & Subscribe"
+        )
         self.signup_btn.setEnabled(True)

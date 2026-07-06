@@ -323,6 +323,7 @@ class DashboardWidget(QWidget):
         countdown, active confirmation, or a suspended/terminated warning."""
         presets = {
             'TRIAL': ('#F59E0B', f"Trial - {days_left} day{'s' if days_left != 1 else ''} left" if days_left is not None else "Trial"),
+            'PENDING_PAYMENT': ('#F59E0B', "Payment Required"),
             'ACTIVE': ('#008C72', "Active"),
             'SUSPENDED': ('#DC2626', "Suspended"),
             'TERMINATED': ('#7F1D1D', "Terminated"),

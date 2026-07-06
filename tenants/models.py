@@ -11,12 +11,14 @@ class Client(TenantMixin):
     paid_until = models.DateField(help_text="Tracks subscription lifecycle")
     on_trial = models.BooleanField(default=True)
     created_on = models.DateField(auto_now_add=True)
+    owner_email = models.EmailField(blank=True, default='')
 
     # Automatically clean up database schemas if a tenant account is dropped
     auto_create_schema = True
     # --- Platform-owner governance fields ---
     SUBSCRIPTION_STATUS_CHOICES = [
         ('TRIAL', 'Trial'),
+        ('PENDING_PAYMENT', 'Pending Payment'),
         ('ACTIVE', 'Active'),
         ('SUSPENDED', 'Suspended'),
         ('TERMINATED', 'Terminated'),
