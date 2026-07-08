@@ -2,7 +2,7 @@ import webbrowser
 
 import requests
 from PyQt6.QtWidgets import (
-    QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget
+    QDialog, QFrame, QHBoxLayout, QLabel, QLineEdit, QMessageBox, QPushButton, QVBoxLayout, QWidget, QInputDialog
 )
 from PyQt6.QtCore import Qt, pyqtSignal
 import qtawesome as qta
@@ -149,7 +149,7 @@ class LoginWidget(QWidget):
             }
             QPushButton:hover { color: #0284C7; text-decoration: underline; }
         """)
-        self.forgot_password_btn.clicked.connect(self.show_password_reset_note)
+        self.forgot_password_btn.clicked.connect(self.show_forgot_password_dialog)
         form_layout.addWidget(self.forgot_password_btn)
 
         self.go_signup_btn = QPushButton("Create a new store")
@@ -249,12 +249,23 @@ class LoginWidget(QWidget):
         dialog = ResumePaymentDialog(tenant, token, plan_code, self)
         dialog.exec()
 
-    def show_password_reset_note(self):
-        QMessageBox.information(
-            self,
-            "Password Reset",
-            "Password reset will use the email saved on the owner or staff account. The login screen will stay simple: store subdomain, username, and password."
-        )
+    def show_forgot_password_dialog(self):
+        tenant = self.tenant_input.text().strip()
+        if not tenant:
+            QMessageBox.warning(self, "Store Required", "Enter your store subdomain first, then try again.")
+            return
+
+        email, ok = QInputDialog.getText(self, "Reset Password", f"Enter the email on file for your account at {tenant}:")
+        if not ok or not email.strip():
+            return
+
+        url, headers = get_api_routing(tenant, "api/v1/password-reset/request/")
+        try:
+            response = requests.post(url, json={"email": email.strip()}, headers=headers, timeout=10)
+            data = response.json()
+            QMessageBox.information(self, "Check Your Email", data.get("message", "If an account exists, a reset link has been sent."))
+        except requests.exceptions.RequestException:
+            QMessageBox.critical(self, "Network Failure", "Unable to reach the server. Please try again.")
 
 
 class ResumePaymentDialog(QDialog):

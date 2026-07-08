@@ -12,12 +12,21 @@ from django.conf.urls.static import static
 
 #billing views
 from billing.views import InitiateSubscriptionCheckoutView
+#password reset views
+from users.views import POSLoginView, PasswordResetRequestView, PasswordResetConfirmView, password_reset_confirm_page
 
 urlpatterns = [
     path('admin/', tenant_admin_site.urls),  # scoped site — no Client/Domain/audit models exist here
     path('api/v1/login/', POSLoginView.as_view(), name='pos_login'),
     path('api/v1/inventory/', include(tenant_router.urls)),
     path('api/v1/billing/checkout/', InitiateSubscriptionCheckoutView.as_view(), name='billing_checkout'),
+    
+    #password reset views
+    path('api/v1/login/', POSLoginView.as_view(), name='pos_login'),
+    path('api/v1/password-reset/request/', PasswordResetRequestView.as_view(), name='password_reset_request'),
+    path('api/v1/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
+    path('password-reset/confirm/', password_reset_confirm_page, name='password_reset_confirm_page'),
+    path('api/v1/inventory/', include(tenant_router.urls)),
 ]
 
 if settings.DEBUG:
