@@ -106,3 +106,35 @@ class SubscriptionCheckoutWorker(QThread):
 
         except requests.exceptions.RequestException as e:
             self.checkout_failed.emit(str(e))
+            
+# workers.py — add alongside the other worker classes
+
+class BarcodeLookupWorker(QThread):
+    """
+    Resolves a single scanned barcode/SKU against the backend when it's
+    not found in the desktop client's locally synced catalog (stale cache
+    or a product added since the last sync).
+    """
+    lookup_finished = pyqtSignal(dict)   # Emitted with the matched product
+    lookup_failed = pyqtSignal(str)      # Emitted on 404 or network failure
+
+    def __init__(self, tenant, token, code):
+        super().__init__()
+        self.tenant = tenant
+        self.token = token
+        self.code = code
+
+    def run(self):
+        url, headers = get_api_routing(self.tenant, "api/v1/inventory/products/lookup/")
+        headers["Authorization"] = f"Token {self.token}"
+
+        try:
+            response = requests.get(url, headers=headers, params={"code": self.code}, timeout=10)
+            if response.status_code == 200:
+                self.lookup_finished.emit(response.json())
+            elif response.status_code == 404:
+                self.lookup_failed.emit("Product not found")
+            else:
+                self.lookup_failed.emit(f"Server returned status code: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            self.lookup_failed.emit(str(e))

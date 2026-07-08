@@ -1,11 +1,12 @@
 from PyQt6.QtWidgets import (
-    QComboBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
+    QApplication, QComboBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
     QSpacerItem, QToolButton, QVBoxLayout, QWidget
 )
+from barcode_scanner import BarcodeScannerFilter
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QAction
-from workers import InventoryFetchWorker
+from workers import InventoryFetchWorker, BarcodeLookupWorker
 import qtawesome as qta
 
 from functools import lru_cache
@@ -242,6 +243,48 @@ class DashboardWidget(QWidget):
         self.cart = {}
         self.current_columns = 0
         self.init_ui()
+        self._install_scanner()
+        
+    #---- barcode scanner integration ---------------------------------------------
+    def _install_scanner(self):
+        self.scanner_filter = BarcodeScannerFilter(self)
+        QApplication.instance().installEventFilter(self.scanner_filter)
+        self.scanner_filter.barcode_scanned.connect(self.handle_barcode_scanned)
+
+    def handle_barcode_scanned(self, code):
+        code = code.strip()
+        if not code:
+            return
+
+        # Fast path: already-synced catalog, works offline
+        product = next(
+            (p for p in self.products if (p.get('sku') or '').lower() == code.lower()),
+            None
+        )
+        if product:
+            self._add_scanned_product(product)
+            return
+
+        # Fallback: cache may be stale or missing this SKU, ask the backend directly
+        self._lookup_barcode_remote(code)
+
+    def _add_scanned_product(self, product):
+        if not product.get('is_active', True) or int(product.get('stock_quantity', 0)) <= 0:
+            QMessageBox.warning(self, "Unavailable", f"{product.get('name', 'Item')} is out of stock or inactive.")
+            return
+        self.add_to_cart(product)
+
+    def _lookup_barcode_remote(self, code):
+        self.scan_lookup_worker = BarcodeLookupWorker(
+            tenant=self.session_info.get('tenant'),
+            token=self.session_info.get('token'),
+            code=code,
+        )
+        self.scan_lookup_worker.lookup_finished.connect(self._add_scanned_product)
+        self.scan_lookup_worker.lookup_failed.connect(
+            lambda msg: QMessageBox.warning(self, "Not Found", f"No product matches barcode '{code}'.")
+        )
+        self.scan_lookup_worker.start()
 
     # -- layout construction -------------------------------------------------
 
