@@ -86,11 +86,14 @@ class GatewayCardWidget(QFrame):
         "STRIPE": ("fa5b.stripe-s", "#635BFF"),
         "PAYPAL": ("fa5b.paypal", "#0070BA"),
         "MPESA": ("fa5s.mobile-alt", "#00A651"),
+        "CASH": ("fa5s.money-bill-wave", "#059669"),
     }
     LABELS = {
         "STRIPE": "Card (Stripe)",
         "PAYPAL": "PayPal",
         "MPESA": "M-Pesa",
+        "CASH": "Cash",
+
     }
 
     def __init__(self, gateway_code, parent=None):

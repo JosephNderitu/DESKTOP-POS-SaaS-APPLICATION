@@ -1,16 +1,265 @@
 from PyQt6.QtWidgets import (
     QApplication, QComboBox, QFrame, QGraphicsOpacityEffect, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QMessageBox, QPushButton, QScrollArea, QSizePolicy,
-    QSpacerItem, QToolButton, QVBoxLayout, QWidget
+    QSpacerItem, QToolButton, QVBoxLayout, QWidget, QDialog
 )
 from barcode_scanner import BarcodeScannerFilter
-from PyQt6.QtCore import Qt, QSize, pyqtSignal
+from PyQt6.QtCore import Qt, QSize, QTimer, pyqtSignal
 from PyQt6.QtGui import QAction
-from workers import InventoryFetchWorker, BarcodeLookupWorker
+from workers import InventoryFetchWorker, BarcodeLookupWorker, SalesCheckoutWorker
 import qtawesome as qta
+import requests
+import webbrowser
 
 from functools import lru_cache
+from signup import GatewayCardWidget
+from config import get_api_routing
 
+
+def compute_discounted_price(product):
+    """
+    Shared display-price helper — mirrors compute_unit_price() on the
+    backend so the price shown here always matches what checkout will
+    actually charge. This is a client-side PREVIEW only; the server
+    recomputes and charges authoritatively regardless of what's sent here.
+    """
+    selling_price = float(product.get('selling_price', 0.0))
+    discount_value = product.get('discount_percent') or product.get('product_discount') or product.get('discount')
+    discount = float(discount_value) if discount_value and float(discount_value) > 0 else 0.0
+    if discount > 0:
+        return selling_price * (1 - discount / 100)
+    return selling_price
+
+# ---------------------------------------------------------------------------
+# Checkout Dialog 
+# ---------------------------------------------------------------------------
+ 
+class CheckoutDialog(QDialog):
+    """
+    Payment method selection + submission for a completed cart. All pricing
+    shown here is a PREVIEW computed client-side with compute_discounted_price
+    — the backend recomputes every line from scratch using the product's
+    live discount and never trusts a price sent from this dialog, so this
+    can't be tampered with to undercut the real charge.
+    """
+    sale_completed = pyqtSignal()
+ 
+    def __init__(self, cart, tenant, token, parent=None):
+        super().__init__(parent)
+        self.cart = cart
+        self.tenant = tenant
+        self.token = token
+        self.selected_method = None
+        self.gateway_cards = []
+        self.current_sale_id = None
+        self.poll_timer = None
+        self._checking_status = False
+        self._poll_count = 0
+
+        self.setWindowTitle("Checkout")
+        self.setFixedWidth(380)
+        self.setStyleSheet("QDialog { background-color: #FFFFFF; }")
+        self._build_ui()
+        self.finished.connect(self._stop_polling)
+ 
+    def _build_ui(self):
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(24, 24, 24, 24)
+        self.main_layout.setSpacing(12)
+ 
+        title = QLabel("Complete Sale")
+        title.setStyleSheet("font-size: 16px; font-weight: 900; color: #061A40;")
+        self.main_layout.addWidget(title)
+ 
+        subtotal, savings, total = self._compute_totals()
+        summary = QLabel(
+            (f"Subtotal: KES {subtotal:,.2f}\n" if savings > 0.01 else "")
+            + (f"Discount: -KES {savings:,.2f}\n" if savings > 0.01 else "")
+            + f"Total due: KES {total:,.2f}"
+        )
+        summary.setStyleSheet("font-size: 13px; color: #334155; background-color: #F8FAFC; padding: 10px; border-radius: 6px;")
+        self.main_layout.addWidget(summary)
+ 
+        method_label = QLabel("Select payment method")
+        method_label.setStyleSheet("font-size: 12px; font-weight: 800; color: #07111F;")
+        self.main_layout.addWidget(method_label)
+ 
+        gateways_row = QHBoxLayout()
+        gateways_row.setSpacing(10)
+        for gateway_code in ("CASH", "MPESA", "STRIPE"):
+            gateway_card = GatewayCardWidget(gateway_code)
+            gateway_card.clicked.connect(self.on_method_selected)
+            self.gateway_cards.append(gateway_card)
+            gateways_row.addWidget(gateway_card)
+        self.main_layout.addLayout(gateways_row)
+ 
+        self.phone_input = QLineEdit()
+        self.phone_input.setPlaceholderText("M-Pesa phone number (e.g., 2547XXXXXXXX)")
+        self.phone_input.setVisible(False)
+        self.main_layout.addWidget(self.phone_input)
+ 
+        self.pay_btn = QPushButton("Complete Sale")
+        self.pay_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pay_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #008C72; color: white; padding: 11px;
+                font-weight: 900; font-size: 13px; border-radius: 6px; border: none;
+            }
+            QPushButton:hover { background-color: #006F5B; }
+            QPushButton:disabled { background-color: #94A3B8; }
+        """)
+        self.pay_btn.clicked.connect(self.submit_checkout)
+        self.main_layout.addWidget(self.pay_btn)
+ 
+        self.status_label = QLabel("")
+        self.status_label.setWordWrap(True)
+        self.status_label.setStyleSheet("font-size: 12px; color: #64748B;")
+        self.main_layout.addWidget(self.status_label)
+ 
+        close_btn = QPushButton("Cancel")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        close_btn.setStyleSheet("""
+            QPushButton { background-color: transparent; color: #334155; font-size: 12px; border: none; padding: 4px; }
+            QPushButton:hover { color: #061A40; text-decoration: underline; }
+        """)
+        close_btn.clicked.connect(self.reject)
+        self.main_layout.addWidget(close_btn)
+ 
+    def _compute_totals(self):
+        subtotal = 0.0
+        total = 0.0
+        for cart_item in self.cart.values():
+            product = cart_item["product"]
+            quantity = cart_item["quantity"]
+            full_price = float(product.get('selling_price', 0.0))
+            price = compute_discounted_price(product)
+            subtotal += full_price * quantity
+            total += price * quantity
+        return subtotal, subtotal - total, total
+ 
+    def on_method_selected(self, gateway_code):
+        self.selected_method = gateway_code
+        for card in self.gateway_cards:
+            card.set_selected(card.gateway_code == gateway_code)
+        self.phone_input.setVisible(gateway_code == "MPESA")
+ 
+    def submit_checkout(self):
+        if not self.selected_method:
+            QMessageBox.warning(self, "Choose a Method", "Select a payment method to continue.")
+            return
+        if self.selected_method == "MPESA" and not self.phone_input.text().strip():
+            QMessageBox.warning(self, "Phone Required", "Enter the phone number to receive the M-Pesa payment prompt on.")
+            return
+ 
+        items_payload = [
+            {"product_id": pid, "quantity": entry["quantity"]}
+            for pid, entry in self.cart.items()
+        ]
+        phone_number = self.phone_input.text().strip() if self.selected_method == "MPESA" else None
+ 
+        self.pay_btn.setText("Processing...")
+        self.pay_btn.setEnabled(False)
+        self.status_label.setText("")
+ 
+        self.checkout_worker = SalesCheckoutWorker(
+            tenant=self.tenant, token=self.token, items=items_payload,
+            payment_method=self.selected_method, phone_number=phone_number,
+        )
+        self.checkout_worker.checkout_ready.connect(self.on_checkout_ready)
+        self.checkout_worker.checkout_failed.connect(self.on_checkout_failed)
+        self.checkout_worker.start()
+ 
+    def on_checkout_ready(self, result):
+        self.current_sale_id = result.get('sale_id')
+        total_amount = result.get('total_amount', '0.00')
+ 
+        if result.get('status') == 'COMPLETED':
+            # Cash — payment already happened physically, sale is final now
+            QMessageBox.information(
+                self, "Sale Complete",
+                f"Sale total KES {total_amount} completed.\n\nReceipt printing is coming soon."
+            )
+            self.sale_completed.emit()
+            self.accept()
+            return
+ 
+        checkout_url = result.get('checkout_url')
+        if checkout_url:
+            webbrowser.open(checkout_url)
+            self.status_label.setText(
+                "A browser window has opened for the customer's card payment. "
+                "Click 'Check Payment Status' once payment is complete."
+            )
+        else:
+            self.status_label.setText(result.get('message', 'Check the customer\'s phone to complete the M-Pesa payment.'))
+ 
+        self.pay_btn.setText("Check Payment Status")
+        self.pay_btn.setEnabled(True)
+        self.pay_btn.clicked.disconnect()
+        self.pay_btn.clicked.connect(self.check_payment_status)
+
+        # Poll automatically so a completed payment is caught without the
+        # cashier needing to click anything — the manual button stays
+        # available too, for an instant check rather than waiting out the
+        # interval.
+        self._poll_count = 0
+        self.poll_timer = QTimer(self)
+        self.poll_timer.timeout.connect(self.check_payment_status)
+        self.poll_timer.start(3000)
+ 
+    def on_checkout_failed(self, error_message):
+        QMessageBox.critical(self, "Checkout Failed", error_message)
+        self.pay_btn.setText("Complete Sale")
+        self.pay_btn.setEnabled(True)
+ 
+    def check_payment_status(self):
+        if not self.current_sale_id or self._checking_status:
+            return  # a poll tick landed while a manual click (or another
+                     # tick) was already mid-flight — skip rather than stack
+
+        self._checking_status = True
+        was_manual_click = not (self.poll_timer and self.poll_timer.isActive())
+        if was_manual_click:
+            self.pay_btn.setText("Checking...")
+            self.pay_btn.setEnabled(False)
+
+        try:
+            url, headers = get_api_routing(self.tenant, f"api/v1/sales/{self.current_sale_id}/status/")
+            headers["Authorization"] = f"Token {self.token}"
+            response = requests.get(url, headers=headers, timeout=10)
+            data = response.json()
+
+            if response.status_code == 200 and data.get('status') == 'COMPLETED':
+                self._stop_polling()
+                QMessageBox.information(self, "Sale Complete", f"Sale total KES {data.get('total_amount')} confirmed.")
+                self.sale_completed.emit()
+                self.accept()
+                return
+            elif data.get('status') == 'CANCELLED':
+                self._stop_polling()
+                QMessageBox.warning(self, "Payment Cancelled", "This payment was cancelled or timed out.")
+            else:
+                self._poll_count += 1
+                if self.poll_timer and self._poll_count >= 20:  # ~60 seconds of auto-checking
+                    self._stop_polling()
+                    self.status_label.setText(
+                        "Still not confirmed after a minute. Keep waiting and check manually, "
+                        "or cancel this sale and ask the customer to retry."
+                    )
+                else:
+                    self.status_label.setText("Waiting for payment confirmation... (checking automatically)")
+        except requests.exceptions.RequestException:
+            self.status_label.setText("Could not reach the server to check status.")
+        finally:
+            self._checking_status = False
+            if was_manual_click:
+                self.pay_btn.setText("Check Payment Status")
+                self.pay_btn.setEnabled(True)
+
+    def _stop_polling(self):
+        if self.poll_timer:
+            self.poll_timer.stop()
+            self.poll_timer = None  
 
 # ---------------------------------------------------------------------------
 # Product card
@@ -603,6 +852,11 @@ class DashboardWidget(QWidget):
         self.cart_subtotal_label.setStyleSheet("font-size: 12px; color: #DCEBFA;")
         summary_layout.addWidget(self.cart_subtotal_label)
 
+        self.cart_savings_label = QLabel("")
+        self.cart_savings_label.setStyleSheet("font-size: 11px; color: #7DD3FC;")
+        self.cart_savings_label.setVisible(False)
+        summary_layout.addWidget(self.cart_savings_label)
+
         self.cart_total_label = QLabel("Total: KES 0.00")
         self.cart_total_label.setStyleSheet("font-size: 18px; font-weight: 900; color: #7DD3FC;")
         summary_layout.addWidget(self.cart_total_label)
@@ -625,6 +879,7 @@ class DashboardWidget(QWidget):
             QPushButton:disabled { background-color: #475569; color: #CBD5E1; }
         """)
         right_panel.addWidget(self.checkout_btn)
+        self.checkout_btn.clicked.connect(self.open_checkout_dialog)
 
         self.logout_btn = QPushButton(" End Shift")
         self.logout_btn.setIcon(qta.icon('fa5s.power-off', color='white'))
@@ -820,6 +1075,20 @@ class DashboardWidget(QWidget):
             self.cart = {}
             self.refresh_cart()
 
+    def open_checkout_dialog(self):
+        if not self.cart:
+            return
+        dialog = CheckoutDialog(self.cart, self.session_info.get('tenant'), self.session_info.get('token'), self)
+        dialog.sale_completed.connect(self.on_sale_completed)
+        dialog.exec()
+
+    def on_sale_completed(self):
+        # Stock changed server-side — clear the cart and pull the fresh
+        # catalog so quantities on screen match reality immediately.
+        self.cart = {}
+        self.refresh_cart()
+        self.trigger_background_sync()
+
     def refresh_cart(self):
         while self.cart_layout.count():
             item = self.cart_layout.takeAt(0)
@@ -828,6 +1097,7 @@ class DashboardWidget(QWidget):
                 widget.setParent(None)
 
         total = 0.0
+        full_subtotal = 0.0
         if not self.cart:
             empty_label = QLabel("Cart is empty. Add products from the catalog.")
             empty_label.setWordWrap(True)
@@ -837,9 +1107,11 @@ class DashboardWidget(QWidget):
             for product_id, cart_item in self.cart.items():
                 product = cart_item["product"]
                 quantity = cart_item["quantity"]
-                price = float(product.get('selling_price', 0.0))
+                full_price = float(product.get('selling_price', 0.0))
+                price = compute_discounted_price(product)
                 line_total = price * quantity
                 total += line_total
+                full_subtotal += full_price * quantity
 
                 item_frame = QFrame()
                 item_frame.setObjectName("cartItem")
@@ -861,7 +1133,10 @@ class DashboardWidget(QWidget):
                 item_name.setStyleSheet("color: #FFFFFF; font-size: 12px; font-weight: 800;")
                 item_layout.addWidget(item_name)
 
-                item_meta = QLabel(f"{quantity} x KES {price:,.2f} = KES {line_total:,.2f}")
+                if price < full_price:
+                    item_meta = QLabel(f"{quantity} x KES {price:,.2f} (was {full_price:,.2f}) = KES {line_total:,.2f}")
+                else:
+                    item_meta = QLabel(f"{quantity} x KES {price:,.2f} = KES {line_total:,.2f}")
                 item_meta.setStyleSheet("color: #DCEBFA; font-size: 11px;")
                 item_layout.addWidget(item_meta)
 
@@ -896,7 +1171,13 @@ class DashboardWidget(QWidget):
                 self.cart_layout.addWidget(item_frame)
 
         self.cart_layout.addStretch()
-        self.cart_subtotal_label.setText(f"Subtotal: KES {total:,.2f}")
+        savings = full_subtotal - total
+        self.cart_subtotal_label.setText(f"Subtotal: KES {full_subtotal:,.2f}")
+        if savings > 0.01:
+            self.cart_savings_label.setText(f"Discount savings: -KES {savings:,.2f}")
+            self.cart_savings_label.setVisible(True)
+        else:
+            self.cart_savings_label.setVisible(False)
         self.cart_total_label.setText(f"Total: KES {total:,.2f}")
         self.checkout_btn.setEnabled(bool(self.cart))
 

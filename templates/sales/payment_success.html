@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Payment Confirmation — RVC POS</title>
+<style>
+  body { margin:0; font-family:'Segoe UI',Helvetica,Arial,sans-serif; background:#F1F5F9; color:#07111F; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .card { background:#FFFFFF; border-radius:12px; box-shadow:0 10px 30px rgba(6,26,64,0.1); max-width:400px; width:90%; padding:40px 32px; text-align:center; }
+  .brand { color:#061A40; font-weight:900; font-size:20px; margin-bottom:4px; }
+  .brand span { color:#008C72; }
+  .status-icon { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:20px auto; font-size:28px; color:#fff; }
+  .icon-loading { background:#0B3D91; }
+  .icon-success { background:#008C72; }
+  .icon-failed { background:#DC2626; }
+  h1 { font-size:18px; margin:8px 0; }
+  p { color:#64748B; font-size:14px; line-height:1.5; }
+  .spinner { border:3px solid rgba(255,255,255,0.4); border-top-color:#fff; border-radius:50%; width:22px; height:22px; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint { margin-top:18px; font-size:12px; color:#94A3B8; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">DUKA YANGU <span>POS</span></div>
+    <div id="icon" class="status-icon icon-loading"><div class="spinner"></div></div>
+    <h1 id="title">Confirming payment...</h1>
+    <p id="message">Please wait a moment while we verify this sale.</p>
+    <p id="hint" class="hint" style="display:none;"></p>
+  </div>
+
+<script>
+const saleId = "{{ sale_id }}";
+const iconEl = document.getElementById('icon');
+const titleEl = document.getElementById('title');
+const messageEl = document.getElementById('message');
+const hintEl = document.getElementById('hint');
+
+function showResult(success, msg) {
+    iconEl.className = 'status-icon ' + (success ? 'icon-success' : 'icon-failed');
+    iconEl.textContent = success ? '\u2713' : '\u2717';
+    titleEl.textContent = success ? 'Payment Successful' : 'Payment Not Confirmed';
+    messageEl.textContent = msg;
+    hintEl.style.display = 'block';
+    hintEl.textContent = 'You can close this tab and return to the till.';
+}
+
+async function confirmPayment() {
+    if (!saleId) {
+        showResult(false, 'No sale reference was found in this link.');
+        return;
+    }
+    try {
+        const response = await fetch(`/api/v1/sales/${saleId}/confirm-stripe/`, { method: 'POST' });
+        const data = await response.json();
+        if (response.ok && data.status === 'COMPLETED') {
+            showResult(true, `Sale total KES ${data.total_amount} has been confirmed.`);
+        } else {
+            showResult(false, data.error || 'We could not confirm this payment yet.');
+        }
+    } catch (err) {
+        showResult(false, 'A network error occurred while confirming payment.');
+    }
+}
+
+confirmPayment();
+</script>
+</body>
+</html>

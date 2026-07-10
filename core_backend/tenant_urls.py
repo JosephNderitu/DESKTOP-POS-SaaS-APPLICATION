@@ -14,6 +14,10 @@ from django.conf.urls.static import static
 from billing.views import InitiateSubscriptionCheckoutView
 #password reset views
 from users.views import POSLoginView, PasswordResetRequestView, PasswordResetConfirmView, password_reset_confirm_page
+from sales.views import (
+    SalesCheckoutView, SaleStatusView, SaleStripeConfirmView,
+    SaleMpesaCallbackView, SaleMarkCancelledView, sale_payment_success_page, sale_payment_cancel_page,
+)
 
 urlpatterns = [
     path('admin/', tenant_admin_site.urls),  # scoped site — no Client/Domain/audit models exist here
@@ -27,6 +31,15 @@ urlpatterns = [
     path('api/v1/password-reset/confirm/', PasswordResetConfirmView.as_view(), name='password_reset_confirm'),
     path('password-reset/confirm/', password_reset_confirm_page, name='password_reset_confirm_page'),
     path('api/v1/inventory/', include(tenant_router.urls)),
+    
+    #sales views
+    path('api/v1/sales/checkout/', SalesCheckoutView.as_view(), name='sales_checkout'),
+    path('api/v1/sales/<uuid:sale_id>/status/', SaleStatusView.as_view(), name='sales_status'),
+    path('api/v1/sales/<uuid:sale_id>/confirm-stripe/', SaleStripeConfirmView.as_view(), name='sales_confirm_stripe'),
+    path('api/v1/sales/webhooks/mpesa/', SaleMpesaCallbackView.as_view(), name='sales_mpesa_webhook'),
+    path('sales/payment/success/', sale_payment_success_page, name='sale_payment_success_page'),
+    path('sales/payment/cancel/', sale_payment_cancel_page, name='sale_payment_cancel_page'),
+    path('api/v1/sales/<uuid:sale_id>/cancel/', SaleMarkCancelledView.as_view(), name='sales_mark_cancelled'),
 ]
 
 if settings.DEBUG:

@@ -107,7 +107,43 @@ class SubscriptionCheckoutWorker(QThread):
         except requests.exceptions.RequestException as e:
             self.checkout_failed.emit(str(e))
             
-# workers.py — add alongside the other worker classes
+class SalesCheckoutWorker(QThread):
+    """
+    Submits a completed cart to the backend for checkout. Runs off the UI
+    thread since this hits the database, and for card/M-Pesa payments, an
+    external gateway too.
+    """
+    checkout_ready = pyqtSignal(dict)
+    checkout_failed = pyqtSignal(str)
+
+    def __init__(self, tenant, token, items, payment_method, phone_number=None):
+        super().__init__()
+        self.tenant = tenant
+        self.token = token
+        self.items = items
+        self.payment_method = payment_method
+        self.phone_number = phone_number
+
+    def run(self):
+        url, headers = get_api_routing(self.tenant, "api/v1/sales/checkout/")
+        headers["Authorization"] = f"Token {self.token}"
+
+        payload = {"items": self.items, "payment_method": self.payment_method}
+        if self.phone_number:
+            payload["phone_number"] = self.phone_number
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=20)
+            if response.status_code in (200, 201, 202):
+                self.checkout_ready.emit(response.json())
+            else:
+                try:
+                    detail = response.json().get("error", "Checkout failed.")
+                except ValueError:
+                    detail = "Checkout failed."
+                self.checkout_failed.emit(detail)
+        except requests.exceptions.RequestException as e:
+            self.checkout_failed.emit(str(e))
 
 class BarcodeLookupWorker(QThread):
     """

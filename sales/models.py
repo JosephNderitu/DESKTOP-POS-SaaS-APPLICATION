@@ -24,8 +24,16 @@ class Sale(AbstractBaseUUIDModel):
     # Metadata for offline identification
     offline_created_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when recorded on desktop client clock")
 
+    class Meta:
+        ordering = ['-created_at']  # latest first, everywhere this model is queried — not just in admin
+        indexes = [
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['status']),
+            models.Index(fields=['cashier']),
+        ]
+
     def __str__(self):
-        return f"Sale {self.id} - Total: {self.total_amount}"
+        return f"Sale {str(self.id)[:8]} - Total: {self.total_amount}"
 
 
 class SaleItem(AbstractBaseUUIDModel):
