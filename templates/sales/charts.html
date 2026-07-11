@@ -1,0 +1,394 @@
+{% load i18n %}
+<div class="sales-analytics-wrap">
+  <style>
+    .sales-analytics-wrap { --navy:#061A40; --teal:#008C72; --sky:#7DD3FC; }
+
+    .sales-chart-card {
+      background:#fff; border-radius:12px; border:1px solid #E2E8F0; overflow:hidden;
+      box-shadow:0 1px 3px rgba(6,26,64,0.06);
+      transition:transform .18s ease, box-shadow .18s ease;
+    }
+    .sales-chart-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(6,26,64,0.14); }
+
+    .sales-chart-card__header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px 20px; background:var(--navy); }
+    .sales-chart-card__title { display:flex; align-items:center; gap:10px; color:#fff; font-weight:700; font-size:14px; margin:0; }
+    .sales-chart-card__title i { color:var(--sky); }
+    .sales-chart-card__body { padding:20px; }
+
+    .sales-range-filter, .sales-month-nav { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .sales-range-btn {
+      background:rgba(255,255,255,0.08); color:#DCEBFA; border:1px solid rgba(255,255,255,0.15);
+      border-radius:20px; padding:5px 12px; font-size:11px; font-weight:600; cursor:pointer;
+      transition:background .15s ease, color .15s ease;
+    }
+    .sales-range-btn:hover { background:rgba(255,255,255,0.16); }
+    .sales-range-btn.is-active { background:var(--teal); color:#fff; border-color:var(--teal); }
+
+    .sales-month-btn {
+      background:rgba(255,255,255,0.1); color:#fff; border:1px solid rgba(255,255,255,0.2);
+      border-radius:8px; width:28px; height:28px; font-size:13px; cursor:pointer; line-height:1;
+    }
+    .sales-month-btn:hover { background:rgba(255,255,255,0.2); }
+    .sales-month-label { color:#fff; font-size:13px; font-weight:700; min-width:110px; text-align:center; }
+
+    /* Top row: pie + line, side by side on wide screens */
+    .sales-dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:stretch; }
+    @media (max-width: 980px) { .sales-dashboard-grid { grid-template-columns:1fr; } }
+
+    .sales-stats-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:10px; margin-bottom:18px; }
+    .sales-stat { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:10px; }
+    .sales-stat__icon { width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#fff; flex-shrink:0; }
+    .sales-stat__value { font-size:15px; font-weight:800; color:var(--navy); line-height:1.2; }
+    .sales-stat__label { font-size:10px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; }
+
+    .sales-pie-layout { display:flex; flex-direction:column; align-items:center; gap:16px; }
+    .sales-pie-canvas-wrap { width:100%; max-width:220px; }
+    .sales-chart-legend { width:100%; display:flex; flex-direction:column; gap:8px; }
+    .sales-legend-row { display:flex; align-items:center; gap:10px; font-size:12px; color:#334155; }
+    .sales-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .sales-legend-value { margin-left:auto; font-weight:700; color:var(--navy); }
+
+    .sales-chart-empty { text-align:center; color:#94A3B8; font-size:13px; padding:30px 10px; }
+
+    .sales-line-canvas-wrap { position:relative; height:280px; }
+
+    /* Cashier comparison */
+    .sales-cashier-body { padding:20px; }
+    .sales-cashier-chart-wrap { position:relative; height:260px; margin-bottom:16px; }
+    .sales-cashier-table { width:100%; border-collapse:collapse; font-size:13px; }
+    .sales-cashier-table th { text-align:left; padding:8px 10px; color:#64748B; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #E2E8F0; }
+    .sales-cashier-table td { padding:10px; border-bottom:1px solid #F1F5F9; color:#334155; }
+    .sales-cashier-table tr:hover td { background:#F8FAFC; }
+    .sales-cashier-rank { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:#E2E8F0; color:#334155; font-weight:800; font-size:11px; }
+    .sales-cashier-rank--top { background:#FBBF24; color:#fff; }
+    .sales-cashier-rank--top i { font-size:10px; }
+    .sales-cashier-name { font-weight:700; color:var(--navy); }
+    .sales-cashier-amount { font-weight:800; color:var(--teal); }
+  </style>
+
+  <div class="sales-dashboard-grid">
+
+    <!-- Pie chart card -->
+    <div class="sales-chart-card">
+      <div class="sales-chart-card__header">
+        <p class="sales-chart-card__title"><i class="fas fa-chart-pie"></i> Sales Breakdown</p>
+        <div class="sales-range-filter" id="salesRangeFilter">
+          <button class="sales-range-btn" data-range="week">Week</button>
+          <button class="sales-range-btn is-active" data-range="month">Month</button>
+          <button class="sales-range-btn" data-range="quarter">Quarter</button>
+          <button class="sales-range-btn" data-range="6months">6M</button>
+          <button class="sales-range-btn" data-range="year">Year</button>
+        </div>
+      </div>
+      <div class="sales-chart-card__body">
+        <div class="sales-stats-grid">
+          <div class="sales-stat">
+            <div class="sales-stat__icon" style="background:#0B3D91;"><i class="fas fa-coins"></i></div>
+            <div>
+              <div class="sales-stat__value" id="statGross">KES 0</div>
+              <div class="sales-stat__label">Gross</div>
+            </div>
+          </div>
+          <div class="sales-stat">
+            <div class="sales-stat__icon" style="background:#F59E0B;"><i class="fas fa-tags"></i></div>
+            <div>
+              <div class="sales-stat__value" id="statDiscounts">KES 0</div>
+              <div class="sales-stat__label">Discounts</div>
+            </div>
+          </div>
+          <div class="sales-stat">
+            <div class="sales-stat__icon" style="background:#008C72;"><i class="fas fa-hand-holding-dollar"></i></div>
+            <div>
+              <div class="sales-stat__value" id="statNet">KES 0</div>
+              <div class="sales-stat__label">Net Sales</div>
+            </div>
+          </div>
+          <div class="sales-stat">
+            <div class="sales-stat__icon" style="background:#061A40;"><i class="fas fa-receipt"></i></div>
+            <div>
+              <div class="sales-stat__value" id="statCount">0</div>
+              <div class="sales-stat__label">Transactions</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sales-pie-layout" id="salesChartLayout">
+          <div class="sales-pie-canvas-wrap">
+            <canvas id="salesPieChart"></canvas>
+          </div>
+          <div class="sales-chart-legend" id="salesChartLegend"></div>
+        </div>
+        <div class="sales-chart-empty" id="salesChartEmpty" style="display:none;">
+          No completed sales in this period yet.
+        </div>
+      </div>
+    </div>
+
+    <!-- Line chart card -->
+    <div class="sales-chart-card">
+      <div class="sales-chart-card__header">
+        <p class="sales-chart-card__title"><i class="fas fa-chart-line"></i> Sales Trend</p>
+      </div>
+      <div class="sales-chart-card__body">
+        <div class="sales-line-canvas-wrap">
+          <canvas id="salesLineChart"></canvas>
+        </div>
+        <div class="sales-chart-empty" id="salesLineEmpty" style="display:none;">
+          No completed sales in this period yet.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Cashier comparison -->
+  <div class="sales-chart-card">
+    <div class="sales-chart-card__header">
+      <p class="sales-chart-card__title"><i class="fas fa-users"></i> Cashier Performance</p>
+      <div class="sales-month-nav">
+        <button class="sales-month-btn" id="cashierPrevMonth" title="Previous month">&#8249;</button>
+        <span class="sales-month-label" id="cashierMonthLabel">This Month</span>
+        <button class="sales-month-btn" id="cashierNextMonth" title="Next month">&#8250;</button>
+      </div>
+    </div>
+    <div class="sales-cashier-body">
+      <div class="sales-cashier-chart-wrap">
+        <canvas id="cashierBarChart"></canvas>
+      </div>
+      <table class="sales-cashier-table" id="cashierTable">
+        <thead>
+          <tr><th>Rank</th><th>Cashier</th><th>Net Sales</th><th>Transactions</th></tr>
+        </thead>
+        <tbody id="cashierTableBody"></tbody>
+      </table>
+      <div class="sales-chart-empty" id="cashierEmpty" style="display:none;">
+        No completed sales by any cashier this month yet.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    let salesPieChart = null;
+    let salesLineChart = null;
+    let cashierBarChart = null;
+
+    // -------- shared helpers --------
+
+    function formatKES(value) {
+        return 'KES ' + Number(value).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    }
+
+    // -------- pie + line (top row) --------
+
+    function renderLegend(labels, values, colors) {
+        const legendEl = document.getElementById('salesChartLegend');
+        legendEl.innerHTML = '';
+        labels.forEach((label, i) => {
+            const row = document.createElement('div');
+            row.className = 'sales-legend-row';
+            row.innerHTML =
+                '<span class="sales-legend-dot" style="background:' + colors[i] + ';"></span>' +
+                '<span>' + label + '</span>' +
+                '<span class="sales-legend-value">' + formatKES(values[i]) + '</span>';
+            legendEl.appendChild(row);
+        });
+    }
+
+    function renderPie(data) {
+        const hasData = data.values && data.values.length > 0 && data.values.some(function (v) { return v > 0; });
+        document.getElementById('salesChartLayout').style.display = hasData ? 'flex' : 'none';
+        document.getElementById('salesChartEmpty').style.display = hasData ? 'none' : 'block';
+
+        if (!hasData) {
+            if (salesPieChart) { salesPieChart.destroy(); salesPieChart = null; }
+            return;
+        }
+
+        renderLegend(data.labels, data.values, data.colors);
+
+        const ctx = document.getElementById('salesPieChart').getContext('2d');
+        if (salesPieChart) { salesPieChart.destroy(); }
+        salesPieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: data.labels,
+                datasets: [{ data: data.values, backgroundColor: data.colors, borderWidth: 2, borderColor: '#fff' }]
+            },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderLine(timeseries) {
+        const hasData = timeseries.labels && timeseries.labels.length > 0;
+        document.getElementById('salesLineEmpty').style.display = hasData ? 'none' : 'block';
+        document.querySelector('#salesLineChart').style.display = hasData ? 'block' : 'none';
+
+        if (!hasData) {
+            if (salesLineChart) { salesLineChart.destroy(); salesLineChart = null; }
+            return;
+        }
+
+        const ctx = document.getElementById('salesLineChart').getContext('2d');
+        if (salesLineChart) { salesLineChart.destroy(); }
+        salesLineChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: timeseries.labels,
+                datasets: [
+                    {
+                        label: 'Gross Sales',
+                        data: timeseries.gross,
+                        borderColor: '#0B3D91',
+                        backgroundColor: 'rgba(11,61,145,0.08)',
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 3,
+                    },
+                    {
+                        label: 'Net Sales',
+                        data: timeseries.net,
+                        borderColor: '#008C72',
+                        backgroundColor: 'rgba(0,140,114,0.10)',
+                        tension: 0.35,
+                        fill: true,
+                        pointRadius: 3,
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } },
+                scales: {
+                    y: { ticks: { callback: function (v) { return formatKES(v); }, font: { size: 10 } } },
+                    x: { ticks: { font: { size: 10 } } },
+                }
+            }
+        });
+    }
+
+    function loadAnalytics(range) {
+        fetch('/api/v1/sales/analytics/?range=' + range, { credentials: 'same-origin' })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                document.getElementById('statGross').textContent = formatKES(data.totals.gross_sales);
+                document.getElementById('statDiscounts').textContent = formatKES(data.totals.total_discounts);
+                document.getElementById('statNet').textContent = formatKES(data.totals.net_sales);
+                document.getElementById('statCount').textContent = data.totals.transaction_count;
+                renderPie(data);
+                renderLine(data.timeseries);
+            })
+            .catch(function () {
+                document.getElementById('salesChartEmpty').textContent = 'Could not load sales data.';
+                document.getElementById('salesChartEmpty').style.display = 'block';
+                document.getElementById('salesChartLayout').style.display = 'none';
+                document.getElementById('salesLineEmpty').textContent = 'Could not load sales data.';
+                document.getElementById('salesLineEmpty').style.display = 'block';
+            });
+    }
+
+    document.querySelectorAll('.sales-range-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('.sales-range-btn').forEach(function (b) { b.classList.remove('is-active'); });
+            btn.classList.add('is-active');
+            loadAnalytics(btn.dataset.range);
+        });
+    });
+
+    loadAnalytics('month');
+
+    // -------- cashier comparison (independent month picker) --------
+
+    const now = new Date();
+    let cashierYear = now.getFullYear();
+    let cashierMonth = now.getMonth() + 1; // JS months are 0-indexed
+
+    function loadCashierPerformance() {
+        const monthParam = cashierYear + '-' + String(cashierMonth).padStart(2, '0');
+        fetch('/api/v1/sales/cashier-performance/?month=' + monthParam, { credentials: 'same-origin' })
+            .then(function (response) { return response.json(); })
+            .then(function (data) {
+                document.getElementById('cashierMonthLabel').textContent = data.month_label || monthParam;
+                renderCashierChart(data.cashiers || []);
+                renderCashierTable(data.cashiers || []);
+            })
+            .catch(function () {
+                document.getElementById('cashierEmpty').textContent = 'Could not load cashier data.';
+                document.getElementById('cashierEmpty').style.display = 'block';
+            });
+    }
+
+    function renderCashierChart(cashiers) {
+        const wrap = document.querySelector('.sales-cashier-chart-wrap');
+        const emptyEl = document.getElementById('cashierEmpty');
+
+        if (!cashiers.length) {
+            wrap.style.display = 'none';
+            emptyEl.style.display = 'block';
+            if (cashierBarChart) { cashierBarChart.destroy(); cashierBarChart = null; }
+            return;
+        }
+        wrap.style.display = 'block';
+        emptyEl.style.display = 'none';
+
+        const sorted = cashiers.slice().sort(function (a, b) { return a.net_sales - b.net_sales; }); // ascending for horizontal bar
+        const ctx = document.getElementById('cashierBarChart').getContext('2d');
+        if (cashierBarChart) { cashierBarChart.destroy(); }
+        cashierBarChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sorted.map(function (c) { return c.username; }),
+                datasets: [{
+                    label: 'Net Sales',
+                    data: sorted.map(function (c) { return c.net_sales; }),
+                    backgroundColor: '#008C72',
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { ticks: { callback: function (v) { return formatKES(v); }, font: { size: 10 } } },
+                    y: { ticks: { font: { size: 11 } } },
+                }
+            }
+        });
+    }
+
+    function renderCashierTable(cashiers) {
+        const body = document.getElementById('cashierTableBody');
+        body.innerHTML = '';
+        cashiers.forEach(function (c, i) {
+            const row = document.createElement('tr');
+            const rankBadge = i === 0
+                ? '<span class="sales-cashier-rank sales-cashier-rank--top"><i class="fas fa-crown"></i></span>'
+                : '<span class="sales-cashier-rank">' + (i + 1) + '</span>';
+            row.innerHTML =
+                '<td>' + rankBadge + '</td>' +
+                '<td class="sales-cashier-name">' + c.username + '</td>' +
+                '<td class="sales-cashier-amount">' + formatKES(c.net_sales) + '</td>' +
+                '<td>' + c.transaction_count + '</td>';
+            body.appendChild(row);
+        });
+    }
+
+    document.getElementById('cashierPrevMonth').addEventListener('click', function () {
+        cashierMonth -= 1;
+        if (cashierMonth < 1) { cashierMonth = 12; cashierYear -= 1; }
+        loadCashierPerformance();
+    });
+    document.getElementById('cashierNextMonth').addEventListener('click', function () {
+        cashierMonth += 1;
+        if (cashierMonth > 12) { cashierMonth = 1; cashierYear += 1; }
+        loadCashierPerformance();
+    });
+
+    loadCashierPerformance();
+})();
+</script>

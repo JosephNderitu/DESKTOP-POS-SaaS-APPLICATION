@@ -18,6 +18,7 @@ from sales.views import (
     SalesCheckoutView, SaleStatusView, SaleStripeConfirmView,
     SaleMpesaCallbackView, SaleMarkCancelledView, sale_payment_success_page, sale_payment_cancel_page,
 )
+from sales.analytics import sales_analytics_api, cashier_performance_api
 
 urlpatterns = [
     path('admin/', tenant_admin_site.urls),  # scoped site — no Client/Domain/audit models exist here
@@ -40,6 +41,9 @@ urlpatterns = [
     path('sales/payment/success/', sale_payment_success_page, name='sale_payment_success_page'),
     path('sales/payment/cancel/', sale_payment_cancel_page, name='sale_payment_cancel_page'),
     path('api/v1/sales/<uuid:sale_id>/cancel/', SaleMarkCancelledView.as_view(), name='sales_mark_cancelled'),
+    #analytics view
+    path('api/v1/sales/analytics/', sales_analytics_api, name='sales_analytics_api'),
+    path('api/v1/sales/cashier-performance/', cashier_performance_api, name='sales_cashier_performance'),
 ]
 
 if settings.DEBUG:

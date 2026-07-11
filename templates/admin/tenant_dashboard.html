@@ -1,6 +1,11 @@
 {% extends "admin/index.html" %}
 {% load i18n %}
 
+{% block extrahead %}
+{{ block.super }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+{% endblock %}
+
 {% block content %}
 <div class="row mb-4">
     <div class="col-md-3 mb-3">
@@ -45,4 +50,5 @@
         <a href="{% url 'tenant_admin:users_user_add' %}" class="btn btn-outline-secondary">Add Staff Member</a>
     </div>
 </div>
+{% include "sales/charts.html" %}
 {% endblock %}
