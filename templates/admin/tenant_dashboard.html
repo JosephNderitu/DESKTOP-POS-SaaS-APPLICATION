@@ -7,6 +7,15 @@
 {% endblock %}
 
 {% block content %}
+<div class="card mb-4" style="border-radius:10px;">
+    <div class="card-header" style="background-color:#061A40; color:white; font-weight:700;">Quick Actions</div>
+    <div class="card-body">
+        <a href="{% url 'tenant_admin:inventory_product_add' %}" class="btn btn-primary me-2">Add Product</a>
+        <a href="{% url 'tenant_admin:inventory_category_add' %}" class="btn btn-outline-primary me-2">Add Category</a>
+        <a href="{% url 'tenant_admin:users_user_add' %}" class="btn btn-outline-secondary">Add Staff Member</a>
+    </div>
+</div>
+
 <div class="row mb-4">
     <div class="col-md-3 mb-3">
         <div class="card text-white" style="background-color:#0B3D91; border:none; border-radius:10px;">
@@ -42,13 +51,5 @@
     </div>
 </div>
 
-<div class="card mb-4" style="border-radius:10px;">
-    <div class="card-header" style="background-color:#061A40; color:white; font-weight:700;">Quick Actions</div>
-    <div class="card-body">
-        <a href="{% url 'tenant_admin:inventory_product_add' %}" class="btn btn-primary me-2">Add Product</a>
-        <a href="{% url 'tenant_admin:inventory_category_add' %}" class="btn btn-outline-primary me-2">Add Category</a>
-        <a href="{% url 'tenant_admin:users_user_add' %}" class="btn btn-outline-secondary">Add Staff Member</a>
-    </div>
-</div>
 {% include "sales/charts.html" %}
 {% endblock %}
