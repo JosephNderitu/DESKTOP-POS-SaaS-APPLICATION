@@ -1,12 +1,12 @@
 import calendar
 from datetime import datetime, timedelta
 
-from django.db.models import Count, Sum
+from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
 from django.db.models.functions import TruncDate, TruncMonth, TruncWeek
 from django.http import JsonResponse
 from django.utils import timezone
 
-from .models import Payment, Sale
+from .models import Payment, Sale, SaleItem
 
 RANGE_DAYS = {
     'week': 7,
@@ -46,6 +46,11 @@ PAYMENT_COLORS = {
     'PAYPAL': '#0070BA',
 }
 
+_PROFIT_EXPR = ExpressionWrapper(
+    (F('unit_price') - F('cost_price')) * F('quantity'),
+    output_field=DecimalField(max_digits=14, decimal_places=2),
+)
+
 
 def _require_staff(request):
     return request.user.is_authenticated and request.user.is_staff
@@ -59,16 +64,64 @@ def _format_bucket_label(bucket, granularity):
     return bucket.strftime('%b %Y')
 
 
+def _period_totals(start, end=None):
+    """
+    Aggregates gross/net/discount/profit/transaction-count for a window.
+    end=None means open-ended (up to now) — used for the "current" period;
+    a bounded [start, end) window is used for the "previous" period so the
+    two never overlap.
+    """
+    sale_filters = {'created_at__gte': start, 'status': 'COMPLETED'}
+    item_filters = {'sale__created_at__gte': start, 'sale__status': 'COMPLETED'}
+    if end is not None:
+        sale_filters['created_at__lt'] = end
+        item_filters['sale__created_at__lt'] = end
+
+    sales_qs = Sale.objects.filter(**sale_filters)
+    totals = sales_qs.aggregate(
+        gross_sales=Sum('subtotal'),
+        total_discounts=Sum('discount_amount'),
+        net_sales=Sum('total_amount'),
+    )
+    transaction_count = sales_qs.count()
+
+    profit_agg = SaleItem.objects.filter(**item_filters).aggregate(gross_profit=Sum(_PROFIT_EXPR))
+    gross_profit = float(profit_agg['gross_profit'] or 0)
+    net_sales = float(totals['net_sales'] or 0)
+    margin_pct = round((gross_profit / net_sales * 100), 1) if net_sales > 0 else 0.0
+
+    return {
+        "gross_sales": float(totals['gross_sales'] or 0),
+        "total_discounts": float(totals['total_discounts'] or 0),
+        "net_sales": net_sales,
+        "transaction_count": transaction_count,
+        "gross_profit": gross_profit,
+        "margin_pct": margin_pct,
+    }
+
+
+def _pct_delta(current, previous):
+    """
+    None means "no meaningful comparison" (nothing happened in the previous
+    period, so a percentage change is undefined rather than misleadingly
+    huge/zero) — the frontend renders that as a neutral "New" badge instead
+    of a fabricated number.
+    """
+    if previous == 0:
+        return None
+    return round((current - previous) / previous * 100, 1)
+
+
 def sales_analytics_api(request):
     """
     GET /api/v1/sales/analytics/?range=week|month|quarter|6months|year
 
     Session-authenticated (called from the admin dashboard's own page, not
     the desktop client), so a plain is_staff check is used rather than DRF
-    token auth. Returns:
-      - totals + payment-method breakdown (pie chart)
-      - a time-series of gross/net sales bucketed by day/week/month
-        depending on range (line chart)
+    token auth. Returns totals (including gross profit + margin), a
+    payment-method breakdown (pie chart), a time-series (line chart), and
+    period-over-period deltas comparing this window to the equal-length
+    window immediately before it.
     """
     if not _require_staff(request):
         return JsonResponse({"error": "Forbidden"}, status=403)
@@ -77,16 +130,19 @@ def sales_analytics_api(request):
     days = RANGE_DAYS.get(range_key, 30)
     granularity = RANGE_GRANULARITY.get(range_key, 'day')
     trunc_func = TRUNC_FUNCS[granularity]
-    since = timezone.now() - timedelta(days=days)
+
+    now = timezone.now()
+    since = now - timedelta(days=days)
+    previous_since = since - timedelta(days=days)
+
+    current_totals = _period_totals(since)
+    previous_totals = _period_totals(previous_since, since)
+    deltas = {
+        key: _pct_delta(current_totals[key], previous_totals[key])
+        for key in ('gross_sales', 'net_sales', 'total_discounts', 'transaction_count', 'gross_profit')
+    }
 
     sales_qs = Sale.objects.filter(created_at__gte=since, status='COMPLETED')
-
-    totals = sales_qs.aggregate(
-        gross_sales=Sum('subtotal'),
-        total_discounts=Sum('discount_amount'),
-        net_sales=Sum('total_amount'),
-    )
-    transaction_count = sales_qs.count()
 
     # --- Payment-method breakdown (pie chart) ---
     breakdown_qs = (
@@ -117,12 +173,8 @@ def sales_analytics_api(request):
         "labels": pie_labels,
         "values": pie_values,
         "colors": pie_colors,
-        "totals": {
-            "gross_sales": float(totals['gross_sales'] or 0),
-            "total_discounts": float(totals['total_discounts'] or 0),
-            "net_sales": float(totals['net_sales'] or 0),
-            "transaction_count": transaction_count,
-        },
+        "totals": current_totals,
+        "deltas": deltas,
         "timeseries": {
             "labels": timeseries_labels,
             "gross": timeseries_gross,

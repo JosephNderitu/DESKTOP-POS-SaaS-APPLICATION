@@ -69,10 +69,11 @@ def build_sale_from_cart(items_payload, cashier):
 
         full_price = product.selling_price
         unit_price = compute_unit_price(product)
+        cost_price = product.cost_price
 
         subtotal += full_price * quantity
         discount_amount += (full_price - unit_price) * quantity
-        line_data.append((product, quantity, unit_price))
+        line_data.append((product, quantity, unit_price, cost_price))
 
     total_amount = subtotal - discount_amount
 
@@ -85,8 +86,11 @@ def build_sale_from_cart(items_payload, cashier):
             total_amount=total_amount,
             status='PENDING',
         )
-        for product, quantity, unit_price in line_data:
-            SaleItem.objects.create(sale=sale, product=product, quantity=quantity, unit_price=unit_price)
+        for product, quantity, unit_price, cost_price in line_data:
+            SaleItem.objects.create(
+                sale=sale, product=product, quantity=quantity,
+                unit_price=unit_price, cost_price=cost_price,
+            )
 
     return sale
 

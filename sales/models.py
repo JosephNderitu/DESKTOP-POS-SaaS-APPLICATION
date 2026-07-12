@@ -40,7 +40,11 @@ class SaleItem(AbstractBaseUUIDModel):
     sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name="sale_items")
     quantity = models.IntegerField(default=1)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2, help_text="Price at the exact moment of purchase")
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, help_text="Selling price at the exact moment of purchase")
+    cost_price = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0,
+        help_text="Product cost price at the exact moment of purchase — used for profit margin reporting, frozen so later cost changes don't distort historical margins."
+    )
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
 
     def save(self, *args, **kwargs):
