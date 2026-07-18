@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework import status
+from tenants.models import log_login_event
 
 from .models import User
 
@@ -26,6 +27,7 @@ class POSLoginView(ObtainAuthToken):
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
         tenant = request.tenant
+        log_login_event(tenant, user)
         
         return Response({
             'token': token.key,

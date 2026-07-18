@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<body style="margin:0; padding:0; background-color:#F1F5F9; font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F1F5F9; padding:40px 0;">
+<tr><td align="center">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#FFFFFF; border-radius:10px; overflow:hidden;">
+<tr><td style="background-color:#061A40; padding:28px 32px; border-bottom:4px solid #008C72;">
+<span style="color:#FFFFFF; font-size:22px; font-weight:900;">RVC <span style="color:#7DD3FC;">POS</span></span>
+</td></tr>
+<tr><td style="padding:32px;">
+<h1 style="margin:0 0 12px; font-size:18px; color:#061A40;">We miss you at {{ store_name }}</h1>
+<p style="margin:0 0 8px; font-size:14px; color:#334155; line-height:1.6;">
+{% if days_inactive %}
+It's been about {{ days_inactive }} day{{ days_inactive|pluralize }} since anyone last logged in to {{ store_name }}.
+{% else %}
+We noticed {{ store_name }} hasn't had a recorded login yet.
+{% endif %}
+</p>
+<p style="margin:0 0 20px; font-size:14px; color:#334155; line-height:1.6;">
+Your store, products, and sales history are all exactly as you left them — just log back in whenever
+you're ready to pick things up again.
+</p>
+<p style="margin:0; font-size:12px; color:#94A3B8; line-height:1.5;">
+If you've decided RVC POS isn't the right fit anymore, no action is needed — this is just a friendly
+check-in, not an automated warning about your account status.
+</p>
+</td></tr>
+<tr><td style="padding:20px 32px; background-color:#F8FAFC; text-align:center;">
+<p style="margin:0; font-size:11px; color:#94A3B8;">RVC POS — point of sale made simple</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -27,6 +27,9 @@ from tenants.views import TenantRegistrationView
 from users.views import POSLoginView
 # Billing views
 from billing.views import SubscriptionPlanListView, StripeWebhookView, PayPalCaptureView, MpesaCallbackView, StripeConfirmCheckoutView, billing_success_page, billing_cancel_page, MarkTransactionCancelledView
+from tenants.platform_analytics import (
+    platform_login_timeseries_api, platform_store_activity_api, send_inactivity_reminder,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -55,6 +58,11 @@ urlpatterns = [
     # Browser-facing redirect landing pages (not API endpoints)
     path('billing/success/', billing_success_page, name='billing_success_page'),
     path('billing/cancel/', billing_cancel_page, name='billing_cancel_page'),
+
+    # Platform analytics endpoints
+    path('api/v1/platform/analytics/login-timeseries/', platform_login_timeseries_api, name='platform_login_timeseries'),
+    path('api/v1/platform/analytics/store-activity/', platform_store_activity_api, name='platform_store_activity'),
+    path('api/v1/platform/stores/<str:schema_name>/send-reminder/', send_inactivity_reminder, name='platform_send_reminder'),
 ]
 
 # Serve media files for tenant domains in development

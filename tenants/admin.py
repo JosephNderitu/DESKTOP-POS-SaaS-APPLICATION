@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.html import format_html
 
-from .models import Client, Domain, PlatformAuditLog, log_platform_action
+from .models import Client, LoginEvent, Domain, PlatformAuditLog, log_platform_action
 
 
 @admin.action(description="Suspend selected stores")
@@ -75,6 +75,19 @@ class PlatformAuditLogAdmin(admin.ModelAdmin):
     search_fields = ('actor_username', 'target_tenant')
     ordering = ('-timestamp',)
     readonly_fields = ('actor_username', 'action', 'target_tenant', 'reason', 'timestamp')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+@admin.register(LoginEvent)
+class LoginEventAdmin(admin.ModelAdmin):
+    list_display = ('timestamp', 'tenant_name', 'username', 'role')
+    list_filter = ('tenant_schema',)
+    search_fields = ('tenant_name', 'username', 'tenant_schema')
+    ordering = ('-timestamp',)
 
     def has_add_permission(self, request):
         return False

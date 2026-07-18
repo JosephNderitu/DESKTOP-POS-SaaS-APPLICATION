@@ -1,0 +1,440 @@
+{% load i18n %}
+<div class="platform-analytics-wrap">
+  <style>
+    .platform-analytics-wrap { --navy:#061A40; --teal:#008C72; --sky:#7DD3FC; }
+
+    .pf-card {
+      background:#fff; border-radius:12px; border:1px solid #E2E8F0; overflow:hidden;
+      box-shadow:0 1px 3px rgba(6,26,64,0.06);
+      transition:transform .18s ease, box-shadow .18s ease;
+    }
+    .pf-card:hover { transform:translateY(-3px); box-shadow:0 10px 28px rgba(6,26,64,0.14); }
+
+    .pf-card__header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding:16px 20px; background:var(--navy); }
+    .pf-card__title { display:flex; align-items:center; gap:10px; color:#fff; font-weight:700; font-size:14px; margin:0; }
+    .pf-card__title i { color:var(--sky); }
+    .pf-card__body { padding:20px; }
+
+    .pf-range-filter { display:flex; gap:6px; flex-wrap:wrap; }
+    .pf-range-btn {
+      background:rgba(255,255,255,0.08); color:#DCEBFA; border:1px solid rgba(255,255,255,0.15);
+      border-radius:20px; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer;
+      min-height:28px; transition:background .15s ease, color .15s ease;
+    }
+    .pf-range-btn:hover { background:rgba(255,255,255,0.16); }
+    .pf-range-btn.is-active { background:var(--teal); color:#fff; border-color:var(--teal); }
+
+    .pf-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; align-items:stretch; }
+    @media (max-width: 980px) { .pf-grid { grid-template-columns:1fr; } }
+
+    .pf-line-wrap { position:relative; height:260px; }
+    @media (max-width: 480px) { .pf-line-wrap { height:210px; } }
+
+    .pf-donut-layout { display:flex; flex-direction:column; align-items:center; gap:16px; }
+    .pf-donut-canvas-wrap { width:100%; max-width:200px; }
+    .pf-legend { width:100%; display:flex; flex-direction:column; gap:8px; }
+    .pf-legend-row { display:flex; align-items:center; gap:10px; font-size:12px; color:#334155; }
+    .pf-legend-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+    .pf-legend-value { margin-left:auto; font-weight:700; color:var(--navy); }
+
+    .pf-bar-wrap { position:relative; height:280px; }
+    @media (max-width: 480px) { .pf-bar-wrap { height:230px; } }
+
+    .pf-summary-strip { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .pf-summary-pill { background:#F8FAFC; border:1px solid #E2E8F0; border-radius:10px; padding:10px 14px; flex:1; min-width:110px; }
+    .pf-summary-pill__value { font-size:17px; font-weight:800; color:var(--navy); }
+    .pf-summary-pill__label { font-size:10px; color:#64748B; font-weight:600; text-transform:uppercase; letter-spacing:0.03em; }
+
+    .pf-table-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .pf-table { width:100%; border-collapse:collapse; font-size:13px; min-width:640px; }
+    .pf-table th { text-align:left; padding:10px; color:#64748B; font-size:11px; text-transform:uppercase; letter-spacing:0.03em; border-bottom:1px solid #E2E8F0; white-space:nowrap; cursor:pointer; user-select:none; }
+    .pf-table th:hover { color:var(--navy); }
+    .pf-table th .sort-arrow { opacity:0.4; margin-left:4px; font-size:9px; }
+    .pf-table th.is-sorted .sort-arrow { opacity:1; }
+    .pf-table td { padding:10px; border-bottom:1px solid #F1F5F9; color:#334155; white-space:nowrap; }
+    .pf-table tr:hover td { background:#F8FAFC; }
+    .pf-store-name { font-weight:700; color:var(--navy); }
+    .pf-store-schema { font-size:10px; color:#94A3B8; }
+
+    .pf-badge { display:inline-block; padding:3px 10px; border-radius:10px; font-size:11px; font-weight:700; color:#fff; white-space:nowrap; }
+    .pf-remind-btn {
+      background:#F1F5F9; color:#334155; border:1px solid #E2E8F0; border-radius:6px;
+      padding:5px 12px; font-size:11px; font-weight:700; cursor:pointer;
+    }
+    .pf-remind-btn:hover { background:#E2E8F0; }
+    .pf-remind-btn:disabled { opacity:0.5; cursor:not-allowed; }
+
+    .pf-empty { text-align:center; color:#94A3B8; font-size:13px; padding:30px 10px; }
+
+    @media (max-width: 400px) {
+      .pf-card__body { padding:14px; }
+      .pf-card__header { padding:12px 14px; }
+    }
+  </style>
+
+  <!-- Row 1: Login trend + Store engagement -->
+  <div class="pf-grid">
+    <div class="pf-card">
+      <div class="pf-card__header">
+        <p class="pf-card__title"><i class="fas fa-right-to-bracket"></i> Login Activity</p>
+        <div class="pf-range-filter" id="pfLoginRangeFilter">
+          <button class="pf-range-btn" data-range="week">Week</button>
+          <button class="pf-range-btn is-active" data-range="month">Month</button>
+          <button class="pf-range-btn" data-range="quarter">Quarter</button>
+          <button class="pf-range-btn" data-range="6months">6M</button>
+          <button class="pf-range-btn" data-range="year">Year</button>
+        </div>
+      </div>
+      <div class="pf-card__body">
+        <div class="pf-line-wrap">
+          <canvas id="pfLoginLineChart"></canvas>
+        </div>
+        <div class="pf-empty" id="pfLoginEmpty" style="display:none;">No logins recorded in this period yet.</div>
+      </div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card__header">
+        <p class="pf-card__title"><i class="fas fa-heart-pulse"></i> Store Engagement</p>
+      </div>
+      <div class="pf-card__body">
+        <div class="pf-donut-layout" id="pfEngagementLayout">
+          <div class="pf-donut-canvas-wrap"><canvas id="pfEngagementChart"></canvas></div>
+          <div class="pf-legend" id="pfEngagementLegend"></div>
+        </div>
+        <div class="pf-empty" id="pfEngagementEmpty" style="display:none;">No stores yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Subscription status + Cashiers per store -->
+  <div class="pf-grid">
+    <div class="pf-card">
+      <div class="pf-card__header">
+        <p class="pf-card__title"><i class="fas fa-credit-card"></i> Subscription Status</p>
+      </div>
+      <div class="pf-card__body">
+        <div class="pf-donut-layout" id="pfSubscriptionLayout">
+          <div class="pf-donut-canvas-wrap"><canvas id="pfSubscriptionChart"></canvas></div>
+          <div class="pf-legend" id="pfSubscriptionLegend"></div>
+        </div>
+        <div class="pf-empty" id="pfSubscriptionEmpty" style="display:none;">No stores yet.</div>
+      </div>
+    </div>
+
+    <div class="pf-card">
+      <div class="pf-card__header">
+        <p class="pf-card__title"><i class="fas fa-user-tag"></i> Cashiers per Store</p>
+      </div>
+      <div class="pf-card__body">
+        <div class="pf-summary-strip">
+          <div class="pf-summary-pill">
+            <div class="pf-summary-pill__value" id="pfTotalCashiers">0</div>
+            <div class="pf-summary-pill__label">Total Cashiers</div>
+          </div>
+          <div class="pf-summary-pill">
+            <div class="pf-summary-pill__value" id="pfTotalStores">0</div>
+            <div class="pf-summary-pill__label">Total Stores</div>
+          </div>
+        </div>
+        <div class="pf-bar-wrap">
+          <canvas id="pfCashierBarChart"></canvas>
+        </div>
+        <div class="pf-empty" id="pfCashierEmpty" style="display:none;">No stores yet.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Store activity table -->
+  <div class="pf-card">
+    <div class="pf-card__header">
+      <p class="pf-card__title"><i class="fas fa-table-list"></i> Store Activity — sorted by most inactive first</p>
+    </div>
+    <div class="pf-card__body">
+      <div class="pf-table-scroll">
+        <table class="pf-table" id="pfStoreTable">
+          <thead>
+            <tr>
+              <th data-sort="name">Store <span class="sort-arrow">&#9662;</span></th>
+              <th data-sort="subscription_status">Subscription <span class="sort-arrow">&#9662;</span></th>
+              <th data-sort="engagement">Engagement <span class="sort-arrow">&#9662;</span></th>
+              <th data-sort="days_inactive">Days Inactive <span class="sort-arrow">&#9662;</span></th>
+              <th data-sort="logins_in_range">Logins (period) <span class="sort-arrow">&#9662;</span></th>
+              <th data-sort="cashier_count">Cashiers <span class="sort-arrow">&#9662;</span></th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="pfStoreTableBody"></tbody>
+        </table>
+      </div>
+      <div class="pf-empty" id="pfStoreTableEmpty" style="display:none;">No stores yet.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    let pfLoginLineChart = null;
+    let pfEngagementChart = null;
+    let pfSubscriptionChart = null;
+    let pfCashierBarChart = null;
+    let pfStoreData = [];
+    let pfSortKey = 'days_inactive';
+    let pfSortDir = -1; // descending by default — most inactive first
+
+    const ENGAGEMENT_LABELS = { ACTIVE: 'Active', IDLE: 'Idle', INACTIVE: 'Inactive', DORMANT: 'Dormant' };
+    const ENGAGEMENT_COLORS = { ACTIVE: '#008C72', IDLE: '#F59E0B', INACTIVE: '#EA580C', DORMANT: '#DC2626' };
+    const SUBSCRIPTION_LABELS = { TRIAL: 'Trial', PENDING_PAYMENT: 'Pending Payment', ACTIVE: 'Active', SUSPENDED: 'Suspended', TERMINATED: 'Terminated' };
+    const SUBSCRIPTION_COLORS = { TRIAL: '#F59E0B', PENDING_PAYMENT: '#EA580C', ACTIVE: '#008C72', SUSPENDED: '#DC2626', TERMINATED: '#7F1D1D' };
+
+    function renderLegend(containerId, entries) {
+        const el = document.getElementById(containerId);
+        el.innerHTML = '';
+        entries.forEach(function (entry) {
+            const row = document.createElement('div');
+            row.className = 'pf-legend-row';
+            row.innerHTML =
+                '<span class="pf-legend-dot" style="background:' + entry.color + ';"></span>' +
+                '<span>' + entry.label + '</span>' +
+                '<span class="pf-legend-value">' + entry.value + '</span>';
+            el.appendChild(row);
+        });
+    }
+
+    // -------- Login trend --------
+
+    function loadLoginTimeseries(range) {
+        fetch('/api/v1/platform/analytics/login-timeseries/?range=' + range, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                const hasData = data.labels && data.labels.length > 0;
+                document.getElementById('pfLoginEmpty').style.display = hasData ? 'none' : 'block';
+                document.getElementById('pfLoginLineChart').style.display = hasData ? 'block' : 'none';
+                if (!hasData) {
+                    if (pfLoginLineChart) { pfLoginLineChart.destroy(); pfLoginLineChart = null; }
+                    return;
+                }
+                const ctx = document.getElementById('pfLoginLineChart').getContext('2d');
+                if (pfLoginLineChart) { pfLoginLineChart.destroy(); }
+                pfLoginLineChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Logins',
+                            data: data.values,
+                            borderColor: '#0B3D91',
+                            backgroundColor: 'rgba(11,61,145,0.08)',
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 3,
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { y: { ticks: { precision: 0, font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } }
+                    }
+                });
+            })
+            .catch(function () {
+                document.getElementById('pfLoginEmpty').textContent = 'Could not load login data.';
+                document.getElementById('pfLoginEmpty').style.display = 'block';
+            });
+    }
+
+    document.querySelectorAll('#pfLoginRangeFilter .pf-range-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            document.querySelectorAll('#pfLoginRangeFilter .pf-range-btn').forEach(function (b) { b.classList.remove('is-active'); });
+            btn.classList.add('is-active');
+            loadLoginTimeseries(btn.dataset.range);
+        });
+    });
+    loadLoginTimeseries('month');
+
+    // -------- Store activity (feeds engagement donut, subscription donut, cashier bar, and the table) --------
+
+    function loadStoreActivity() {
+        fetch('/api/v1/platform/analytics/store-activity/?range=month', { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                pfStoreData = data.stores || [];
+                renderEngagementDonut(data.summary.engagement_breakdown);
+                renderSubscriptionDonut(data.summary.subscription_breakdown);
+                renderCashierBar(pfStoreData);
+                document.getElementById('pfTotalCashiers').textContent = data.summary.total_cashiers;
+                document.getElementById('pfTotalStores').textContent = data.summary.total_stores;
+                renderStoreTable();
+            })
+            .catch(function () {
+                document.getElementById('pfStoreTableEmpty').textContent = 'Could not load store activity.';
+                document.getElementById('pfStoreTableEmpty').style.display = 'block';
+            });
+    }
+
+    function renderEngagementDonut(breakdown) {
+        const keys = Object.keys(breakdown).filter(function (k) { return breakdown[k] > 0; });
+        const hasData = keys.length > 0;
+        document.getElementById('pfEngagementLayout').style.display = hasData ? 'flex' : 'none';
+        document.getElementById('pfEngagementEmpty').style.display = hasData ? 'none' : 'block';
+        if (!hasData) {
+            if (pfEngagementChart) { pfEngagementChart.destroy(); pfEngagementChart = null; }
+            return;
+        }
+        const labels = keys.map(function (k) { return ENGAGEMENT_LABELS[k] || k; });
+        const values = keys.map(function (k) { return breakdown[k]; });
+        const colors = keys.map(function (k) { return ENGAGEMENT_COLORS[k] || '#64748B'; });
+        renderLegend('pfEngagementLegend', keys.map(function (k, i) { return { label: labels[i], value: values[i], color: colors[i] }; }));
+
+        const ctx = document.getElementById('pfEngagementChart').getContext('2d');
+        if (pfEngagementChart) { pfEngagementChart.destroy(); }
+        pfEngagementChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+            options: { responsive: true, maintainAspectRatio: true, cutout: '60%', plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderSubscriptionDonut(breakdown) {
+        const keys = Object.keys(breakdown).filter(function (k) { return breakdown[k] > 0; });
+        const hasData = keys.length > 0;
+        document.getElementById('pfSubscriptionLayout').style.display = hasData ? 'flex' : 'none';
+        document.getElementById('pfSubscriptionEmpty').style.display = hasData ? 'none' : 'block';
+        if (!hasData) {
+            if (pfSubscriptionChart) { pfSubscriptionChart.destroy(); pfSubscriptionChart = null; }
+            return;
+        }
+        const labels = keys.map(function (k) { return SUBSCRIPTION_LABELS[k] || k; });
+        const values = keys.map(function (k) { return breakdown[k]; });
+        const colors = keys.map(function (k) { return SUBSCRIPTION_COLORS[k] || '#64748B'; });
+        renderLegend('pfSubscriptionLegend', keys.map(function (k, i) { return { label: labels[i], value: values[i], color: colors[i] }; }));
+
+        const ctx = document.getElementById('pfSubscriptionChart').getContext('2d');
+        if (pfSubscriptionChart) { pfSubscriptionChart.destroy(); }
+        pfSubscriptionChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: { labels: labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }] },
+            options: { responsive: true, maintainAspectRatio: true, cutout: '60%', plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderCashierBar(stores) {
+        const hasData = stores.length > 0;
+        document.getElementById('pfCashierEmpty').style.display = hasData ? 'none' : 'block';
+        document.getElementById('pfCashierBarChart').style.display = hasData ? 'block' : 'none';
+        if (!hasData) {
+            if (pfCashierBarChart) { pfCashierBarChart.destroy(); pfCashierBarChart = null; }
+            return;
+        }
+        const sorted = stores.slice().sort(function (a, b) { return a.cashier_count - b.cashier_count; });
+        const ctx = document.getElementById('pfCashierBarChart').getContext('2d');
+        if (pfCashierBarChart) { pfCashierBarChart.destroy(); }
+        pfCashierBarChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sorted.map(function (s) { return s.name; }),
+                datasets: [{ label: 'Cashiers', data: sorted.map(function (s) { return s.cashier_count; }), backgroundColor: '#0B3D91', borderRadius: 6 }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 11 } } } }
+            }
+        });
+    }
+
+    // -------- Store activity table (sortable) --------
+
+    function renderStoreTable() {
+        const body = document.getElementById('pfStoreTableBody');
+        const emptyEl = document.getElementById('pfStoreTableEmpty');
+        body.innerHTML = '';
+
+        if (!pfStoreData.length) {
+            emptyEl.style.display = 'block';
+            return;
+        }
+        emptyEl.style.display = 'none';
+
+        const sorted = pfStoreData.slice().sort(function (a, b) {
+            let av = a[pfSortKey], bv = b[pfSortKey];
+            if (av === null || av === undefined) av = pfSortKey === 'days_inactive' ? Infinity : '';
+            if (bv === null || bv === undefined) bv = pfSortKey === 'days_inactive' ? Infinity : '';
+            if (typeof av === 'string') { av = av.toLowerCase(); bv = bv.toLowerCase(); }
+            if (av < bv) return -1 * pfSortDir;
+            if (av > bv) return 1 * pfSortDir;
+            return 0;
+        });
+
+        sorted.forEach(function (store) {
+            const row = document.createElement('tr');
+            const daysText = store.days_inactive === null ? 'Never logged in' : store.days_inactive + ' days';
+            const canRemind = store.engagement === 'INACTIVE' || store.engagement === 'DORMANT';
+
+            row.innerHTML =
+                '<td><div class="pf-store-name">' + store.name + '</div><div class="pf-store-schema">' + store.schema_name + '</div></td>' +
+                '<td><span class="pf-badge" style="background:' + (SUBSCRIPTION_COLORS[store.subscription_status] || '#64748B') + ';">' + (SUBSCRIPTION_LABELS[store.subscription_status] || store.subscription_status) + '</span></td>' +
+                '<td><span class="pf-badge" style="background:' + (ENGAGEMENT_COLORS[store.engagement] || '#64748B') + ';">' + (ENGAGEMENT_LABELS[store.engagement] || store.engagement) + '</span></td>' +
+                '<td>' + daysText + '</td>' +
+                '<td>' + store.logins_in_range + '</td>' +
+                '<td>' + store.cashier_count + '</td>' +
+                '<td><button class="pf-remind-btn" ' + (canRemind ? '' : 'disabled') + ' data-schema="' + store.schema_name + '">Send Reminder</button></td>';
+            body.appendChild(row);
+        });
+
+        body.querySelectorAll('.pf-remind-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                const schemaName = btn.dataset.schema;
+                const originalText = btn.textContent;
+                btn.disabled = true;
+                btn.textContent = 'Sending...';
+
+                fetch('/api/v1/platform/stores/' + schemaName + '/send-reminder/', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: { 'X-CSRFToken': getCsrfToken() },
+                })
+                    .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+                    .then(function (result) {
+                        if (result.ok) {
+                            btn.textContent = 'Sent \u2713';
+                            btn.style.background = '#D1FAE5';
+                            btn.style.color = '#065F46';
+                        } else {
+                            alert(result.data.error || 'Could not send reminder.');
+                            btn.disabled = false;
+                            btn.textContent = originalText;
+                        }
+                    })
+                    .catch(function () {
+                        alert('Network error while sending reminder.');
+                        btn.disabled = false;
+                        btn.textContent = originalText;
+                    });
+            });
+        });
+    }
+
+    document.querySelectorAll('#pfStoreTable th[data-sort]').forEach(function (th) {
+        th.addEventListener('click', function () {
+            const key = th.dataset.sort;
+            if (pfSortKey === key) {
+                pfSortDir *= -1;
+            } else {
+                pfSortKey = key;
+                pfSortDir = 1;
+            }
+            document.querySelectorAll('#pfStoreTable th').forEach(function (h) { h.classList.remove('is-sorted'); });
+            th.classList.add('is-sorted');
+            renderStoreTable();
+        });
+    });
+
+    function getCsrfToken() {
+        const match = document.cookie.match(/csrftoken=([^;]+)/);
+        return match ? match[1] : '';
+    }
+
+    loadStoreActivity();
+})();
+</script>

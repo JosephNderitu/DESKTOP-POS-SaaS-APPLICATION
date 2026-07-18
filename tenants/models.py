@@ -12,6 +12,11 @@ class Client(TenantMixin):
     on_trial = models.BooleanField(default=True)
     created_on = models.DateField(auto_now_add=True)
     owner_email = models.EmailField(blank=True, default='')
+    # Cached counters/state — avoids per-page-load cross-schema queries.
+    # Kept in sync by signals (cashier_count) and by the analytics endpoint
+    # itself (last_known_engagement) rather than recomputed live every time.
+    cashier_count = models.PositiveIntegerField(default=0)
+    last_known_engagement = models.CharField(max_length=20, blank=True, default='')
 
     # Automatically clean up database schemas if a tenant account is dropped
     auto_create_schema = True
@@ -80,10 +85,47 @@ def log_platform_action(actor, action, target_tenant, reason=''):
         target_tenant=target_tenant,
         reason=reason,
     )
-    
+ 
+class LoginEvent(models.Model):
+    """
+    One row per successful store-user login, written to the PUBLIC schema
+    regardless of which tenant the login happened against. This is what
+    lets the platform dashboard chart login activity and flag inactive
+    stores with a single query, instead of looping schema_context() across
+    every tenant's own database just to answer "who logged in recently".
+    """
+    tenant_schema = models.CharField(max_length=100)
+    tenant_name = models.CharField(max_length=100, blank=True, default='')
+    username = models.CharField(max_length=150)
+    role = models.CharField(max_length=20, blank=True, default='')
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['tenant_schema', '-timestamp']),
+            models.Index(fields=['-timestamp']),
+        ]
+
+    def __str__(self):
+        return f"{self.timestamp:%Y-%m-%d %H:%M} · {self.tenant_schema} · {self.username}"
+
+
+def log_login_event(tenant, user):
+    """Call this from POSLoginView on every successful login."""
+    from django_tenants.utils import get_public_schema_name, schema_context
+    with schema_context(get_public_schema_name()):
+        LoginEvent.objects.create(
+            tenant_schema=tenant.schema_name,
+            tenant_name=tenant.name,
+            username=user.username,
+            role=getattr(user, 'role', ''),
+        )
+           
 class Domain(DomainMixin):
     """
     Maps an sub-domain routing token to a specific client schema 
     (e.g., 'nairobibranch.smartpos.com' -> routes queries to client DB space).
     """
     pass
+
